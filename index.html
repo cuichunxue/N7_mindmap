@@ -27,17 +27,17 @@
         }
 
         [data-theme="light"] {
-            --bg-primary: #ffffff;
-            --bg-secondary: #f7f9fa;
-            --bg-tertiary: #eff3f4;
+            --bg-primary: #f0f4f8;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #e8eef3;
             --bg-card: #ffffff;
-            --text-primary: #0f1419;
-            --text-secondary: #536471;
-            --text-muted: #8899a6;
-            --line-color: #cfd9de;
+            --text-primary: #1a2733;
+            --text-secondary: #4a5568;
+            --text-muted: #718096;
+            --line-color: #94a3b8;
             --line-active: #1d9bf0;
-            --node-border: #cfd9de;
-            --shadow-color: rgba(0,0,0,0.1);
+            --node-border: #cbd5e1;
+            --shadow-color: rgba(0,0,0,0.12);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -1233,12 +1233,12 @@
             if (!treeData) { toast('No data to export', 'error'); return; }
 
             const bounds = getExportBounds();
-            const bgColor = isDarkTheme ? '#0f1419' : '#ffffff';
-            const lineColor = isDarkTheme ? '#3d5466' : '#cfd9de';
-            const textColor = isDarkTheme ? '#ffffff' : '#0f1419';
+            const bgColor = isDarkTheme ? '#0f1419' : '#f0f4f8';
+            const lineColor = isDarkTheme ? '#3d5466' : '#94a3b8';
+            const textColor = isDarkTheme ? '#ffffff' : '#1a2733';
             const cardBg = isDarkTheme ? '#1c2732' : '#ffffff';
-            const leafBg = isDarkTheme ? '#22303c' : '#eff3f4';
-            const borderColor = isDarkTheme ? '#3d5466' : '#cfd9de';
+            const leafBg = isDarkTheme ? '#22303c' : '#e8eef3';
+            const borderColor = isDarkTheme ? '#3d5466' : '#cbd5e1';
 
             let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}" width="${bounds.width}" height="${bounds.height}">
@@ -1314,12 +1314,12 @@
             if (!treeData) { toast('No data to export', 'error'); return; }
 
             const bounds = getExportBounds();
-            const bgColor = isDarkTheme ? '#0f1419' : '#ffffff';
-            const lineColor = isDarkTheme ? '#3d5466' : '#cfd9de';
-            const textColor = isDarkTheme ? '#ffffff' : '#0f1419';
+            const bgColor = isDarkTheme ? '#0f1419' : '#f0f4f8';
+            const lineColor = isDarkTheme ? '#3d5466' : '#94a3b8';
+            const textColor = isDarkTheme ? '#ffffff' : '#1a2733';
             const cardBg = isDarkTheme ? '#1c2732' : '#ffffff';
-            const leafBg = isDarkTheme ? '#22303c' : '#eff3f4';
-            const borderColor = isDarkTheme ? '#3d5466' : '#cfd9de';
+            const leafBg = isDarkTheme ? '#22303c' : '#e8eef3';
+            const borderColor = isDarkTheme ? '#3d5466' : '#cbd5e1';
 
             const canvas = document.createElement('canvas');
             canvas.width = bounds.width * scale;
