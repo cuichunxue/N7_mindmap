@@ -1118,15 +1118,14 @@
 
         // Stats
         function updateStats() {
-            let total = 0, visible = 0, maxD = 0;
+            let total = 0, maxD = 0;
             (function count(n, d) {
                 total++;
-                if (n._visible) visible++;
                 maxD = Math.max(maxD, d);
                 n.children.forEach(c => count(c, d + 1));
             })(treeData, 0);
             document.getElementById('stat-total').textContent = total;
-            document.getElementById('stat-visible').textContent = visible;
+            document.getElementById('stat-visible').textContent = visibleNodeIds.size;
             document.getElementById('stat-depth').textContent = maxD;
         }
 
@@ -1184,6 +1183,20 @@
             const input = document.getElementById('mermaid-input').value;
             treeData = parse(input);
             if (!treeData) { toast('Invalid syntax', 'error'); return; }
+
+            // Clear old DOM elements before rendering new data
+            nodeElements.forEach(el => el.remove());
+            nodeElements.clear();
+            visibleNodeIds.clear();
+
+            // Reset selection state
+            selectedNode = null;
+            contextNode = null;
+            hoveredNode = null;
+
+            // Clear SVG
+            document.getElementById('connections-svg').innerHTML = '';
+
             localStorage.setItem('mindmap-data', input);
             expandedNodes.clear();
             (function initExp(n) { expandedNodes.add(n.id); n.children.forEach(initExp); })(treeData);
