@@ -632,51 +632,40 @@
             return root;
         }
 
-        // Layout
+        // Layout - returns set of visible node IDs with valid coordinates
+        const visibleNodeIds = new Set();
+
         function calcLayout(node, depth = 0, yOff = 0) {
             node._depth = depth;
-            node._visible = true;
+            node._x = depth * LAYOUT.levelGap;
+
             let subH = 0;
             const expanded = expandedNodes.has(node.id) || depth === 0;
 
             if (expanded && node.children.length) {
                 node.children.forEach((child, i) => {
-                    child._visible = true;
                     subH += calcLayout(child, depth + 1, yOff + subH);
                     if (i < node.children.length - 1) subH += LAYOUT.gap;
                 });
-            } else {
-                hideAll(node);
             }
 
-            node._x = depth * LAYOUT.levelGap;
             node._y = yOff + (subH > 0 ? subH / 2 : LAYOUT.nodeH / 2);
             node._subH = Math.max(LAYOUT.nodeH, subH);
+
+            // Mark this node as visible with valid coordinates
+            visibleNodeIds.add(node.id);
+
             return node._subH;
-        }
-
-        function hideAll(node) {
-            node.children.forEach(c => { c._visible = false; hideAll(c); });
-        }
-
-        // Get visible node IDs (same logic used by both renderNodes and renderLines)
-        function getVisibleNodeIds() {
-            const visible = new Set();
-            function collect(node) {
-                if (!node._visible) return;
-                visible.add(node.id);
-                if (expandedNodes.has(node.id) || node._depth === 0) {
-                    node.children.forEach(collect);
-                }
-            }
-            if (treeData) collect(treeData);
-            return visible;
         }
 
         // Render
         function render() {
             if (!treeData) return;
+
+            // Clear visible set and recalculate
+            visibleNodeIds.clear();
             calcLayout(treeData);
+
             renderNodes();
             renderLines();
             updateStats();
@@ -686,11 +675,10 @@
 
         function renderNodes() {
             const container = document.getElementById('mindmap');
-            const visible = getVisibleNodeIds();
 
             function process(node) {
                 let el = nodeElements.get(node.id);
-                const isVisible = visible.has(node.id);
+                const isVisible = visibleNodeIds.has(node.id);
 
                 if (!isVisible) {
                     if (el) el.classList.add('hidden');
@@ -729,7 +717,7 @@
                     setupEvents(el, node);
                 }
 
-                // Position using transform - use calculated coordinates directly
+                // Position using transform
                 el.style.transform = `translate(${node._x}px, ${node._y - 20}px)`;
 
                 // Build class list
@@ -749,17 +737,19 @@
         function renderLines() {
             const svg = document.getElementById('connections-svg');
             svg.innerHTML = '';
-            const visible = getVisibleNodeIds();
 
-            // Iterate through all nodes and draw lines to their parent
-            nodeMap.forEach(node => {
-                if (!node.parent) return;
-                if (!visible.has(node.id) || !visible.has(node.parent.id)) return;
+            // Only draw lines for nodes that are in visibleNodeIds
+            visibleNodeIds.forEach(nodeId => {
+                const node = nodeMap.get(nodeId);
+                if (!node || !node.parent) return;
+
+                // Parent must also be visible
+                if (!visibleNodeIds.has(node.parent.id)) return;
 
                 const parent = node.parent;
 
-                // Use calculated coordinates directly (same as index5.html approach)
-                const x1 = parent._x + 120; // Approximate node width
+                // Use calculated coordinates
+                const x1 = parent._x + 120;
                 const y1 = parent._y;
                 const x2 = node._x;
                 const y2 = node._y;
