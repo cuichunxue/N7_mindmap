@@ -669,6 +669,9 @@
         function render() {
             if (!treeData) return;
 
+            // FIRST: Clear lines immediately to prevent orphan lines
+            document.getElementById('connections-svg').innerHTML = '';
+
             // Step 1: Calculate layout and determine visible nodes
             calcLayout(treeData);
 
@@ -678,10 +681,13 @@
             // Step 3: Render nodes using positions map
             renderNodes();
 
-            // Step 4: Render lines using same positions map (after DOM update)
+            // Step 4: Render lines AFTER DOM is fully updated
+            // Use double RAF to ensure layout is complete
             requestAnimationFrame(() => {
-                updateNodeWidths();
-                renderLines();
+                requestAnimationFrame(() => {
+                    updateNodeWidths();
+                    renderLines();
+                });
             });
 
             updateStats();
@@ -799,6 +805,9 @@
                 const parentPos = visiblePositions.get(node.id);
                 if (!parentPos) return;
 
+                // Parent must have valid width (element must be rendered)
+                if (!parentPos.width || parentPos.width <= 0) return;
+
                 // Skip if no children or collapsed
                 if (node.children.length === 0) return;
                 const isExpanded = expandedNodes.has(node.id) || node._depth === 0;
@@ -810,6 +819,10 @@
 
                     // CRITICAL: Only draw if child is in visiblePositions
                     if (!childPos) continue;
+
+                    // Verify child element exists and is not hidden
+                    const childEl = nodeElements.get(child.id);
+                    if (!childEl || childEl.classList.contains('hidden')) continue;
 
                     const x1 = parentPos.x + parentPos.width;
                     const y1 = parentPos.y;
