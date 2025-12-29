@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>MindFlow Pro — index2</title>
+  <title>MindFlow Pro — Complex Sample</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 
@@ -234,6 +234,15 @@
       backdrop-filter:blur(18px);
       -webkit-backdrop-filter:blur(18px);
     }
+
+    /* iOS Safari 安定化：backdrop-filter + transform の不安定を回避 */
+    @supports (-webkit-touch-callout: none) {
+      .node{
+        backdrop-filter:none !important;
+        -webkit-backdrop-filter:none !important;
+        background:rgba(30,41,59,.88);
+      }
+    }
   </style>
 </head>
 
@@ -319,7 +328,7 @@
   </div>
 
   <script>
-    const STORAGE_KEY = "mindflow_pro_v2_index2";
+    const STORAGE_KEY = "mindflow_pro_v2_complex";
 
     const state = {
       nodes: [
@@ -745,7 +754,8 @@
     }
 
     function applyTransform() {
-      canvas.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.scale})`;
+      // Safari 安定化：GPUレイヤーを促す
+      canvas.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.scale}) translateZ(0)`;
     }
 
     function updateStatus() { nodeCount.textContent = `${state.nodes.length} nodes`; }
@@ -1108,9 +1118,110 @@
           if (!n.color) n.color = "sky";
         }
       } else {
-        addNode("root", "リサーチ", false);
-        addNode("root", "開発", false);
-        addNode("root", "デザイン", false);
+        // ===== Complex Sample Map (20+ nodes) =====
+        const research = addNode("root", "リサーチ", false);
+        const product  = addNode("root", "プロダクト要件", false);
+        const design   = addNode("root", "デザイン", false);
+        const dev      = addNode("root", "開発", false);
+        const launch   = addNode("root", "ローンチ&運用", false);
+        const risk     = addNode("root", "リスク/法務", false);
+
+        setNodeColor(research, "sky", false);
+        setNodeColor(product, "violet", false);
+        setNodeColor(design, "emerald", false);
+        setNodeColor(dev, "amber", false);
+        setNodeColor(launch, "rose", false);
+        setNodeColor(risk, "violet", false);
+
+        const users   = addNode(research, "ユーザー調査", false);
+        const market  = addNode(research, "市場分析", false);
+        const comps   = addNode(research, "競合比較", false);
+
+        addNode(users,  "インタビュー設計", false);
+        addNode(users,  "ペルソナ/ジョブ理論", false);
+        addNode(users,  "課題仮説の優先度付け", false);
+
+        addNode(market, "TAM/SAM/SOM", false);
+        addNode(market, "価格帯/収益モデル", false);
+        addNode(market, "参入障壁/差別化", false);
+
+        addNode(comps,  "主要3社の強み弱み", false);
+        addNode(comps,  "比較表（機能/価格/UX）", false);
+
+        const scope   = addNode(product, "スコープ", false);
+        const mvp     = addNode(product, "MVP定義", false);
+        const kpi     = addNode(product, "KPI/成功条件", false);
+
+        addNode(scope, "必須 / 追加 / 将来", false);
+        addNode(scope, "非スコープ明記", false);
+
+        addNode(mvp,   "Must-have 5機能", false);
+        addNode(mvp,   "ユーザーストーリー", false);
+        addNode(mvp,   "受入基準（DoD）", false);
+
+        addNode(kpi,   "北極星指標", false);
+        addNode(kpi,   "Activation/Retention", false);
+        addNode(kpi,   "品質KPI（クラッシュ率等）", false);
+
+        const ia      = addNode(design, "情報設計(IA)", false);
+        const ux      = addNode(design, "UXフロー", false);
+        const ui      = addNode(design, "UIコンポーネント", false);
+
+        addNode(ia, "画面一覧/ナビ構造", false);
+        addNode(ia, "権限/ロール設計", false);
+
+        addNode(ux, "オンボーディング", false);
+        addNode(ux, "主要タスク導線", false);
+        addNode(ux, "エラー/空状態", false);
+
+        addNode(ui, "デザインシステム", false);
+        addNode(ui, "アクセシビリティ", false);
+
+        const arch    = addNode(dev, "アーキテクチャ", false);
+        const api     = addNode(dev, "API/DB", false);
+        const qa      = addNode(dev, "QA/テスト", false);
+
+        addNode(arch, "フロント構成", false);
+        addNode(arch, "状態管理/同期", false);
+        addNode(arch, "オフライン/キャッシュ", false);
+
+        addNode(api,  "スキーマ設計", false);
+        addNode(api,  "認証/認可", false);
+        addNode(api,  "監査ログ", false);
+
+        addNode(qa,   "テスト戦略(単体/結合/E2E)", false);
+        addNode(qa,   "負荷試験/計測", false);
+        addNode(qa,   "リリース判定", false);
+
+        const ops     = addNode(launch, "運用", false);
+        const growth  = addNode(launch, "成長施策", false);
+
+        addNode(ops, "監視/アラート", false);
+        addNode(ops, "障害対応Runbook", false);
+        addNode(ops, "問い合わせ導線", false);
+
+        addNode(growth, "A/Bテスト", false);
+        addNode(growth, "リファラル", false);
+        addNode(growth, "SEO/コンテンツ", false);
+
+        const legal   = addNode(risk, "法務", false);
+        const sec     = addNode(risk, "セキュリティ", false);
+
+        addNode(legal, "利用規約/プライバシー", false);
+        addNode(legal, "著作権/ライセンス", false);
+
+        addNode(sec, "脆弱性対応", false);
+        addNode(sec, "PII取り扱い", false);
+        addNode(sec, "権限・監査", false);
+
+        // 一部を折りたたみ（複雑さ・安定性テストに便利）
+        toggleCollapse(users, false);
+        toggleCollapse(arch, false);
+        toggleCollapse(ops, false);
+
+        if (config.avoidOverlap) relaxOverlaps();
+
+        // 初回保存
         scheduleSave();
       }
 
