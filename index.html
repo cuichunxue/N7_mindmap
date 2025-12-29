@@ -2,47 +2,61 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Expandable Mind Map - Mermaid Parser</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1a1d23">
+    <title>Mind Map Viewer</title>
     <style>
         :root {
             --bg-primary: #1a1d23;
             --bg-secondary: #242830;
+            --bg-tertiary: #2d3748;
             --bg-node: #2d3748;
             --bg-node-hover: #3d4a5c;
-            --bg-node-expanded: #38a169;
-            --bg-node-collapsed: #4a5568;
             --text-primary: #e2e8f0;
             --text-secondary: #a0aec0;
+            --text-muted: #718096;
             --accent-green: #48bb78;
+            --accent-green-dark: #2f855a;
             --accent-blue: #4299e1;
+            --accent-orange: #ed8936;
             --line-color: #4a5568;
             --line-color-active: #68d391;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-            --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-            --transition-fast: 0.15s ease;
-            --transition-normal: 0.3s ease;
-            --transition-slow: 0.5s ease;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+            --radius: 8px;
+            --radius-lg: 12px;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-top: env(safe-area-inset-top, 0px);
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            touch-action: none;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
-            min-height: 100vh;
-            overflow: hidden;
         }
 
-        .app-container {
+        /* App Layout */
+        .app {
             display: flex;
             flex-direction: column;
-            height: 100vh;
+            height: 100%;
+            height: 100dvh;
         }
 
         /* Header */
@@ -50,134 +64,78 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 24px;
-            background: var(--bg-secondary);
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            z-index: 100;
-        }
-
-        .header h1 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .header-controls {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
             padding: 8px 16px;
-            background: var(--bg-node);
-            color: var(--text-primary);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 6px;
-            font-size: 0.875rem;
-            cursor: pointer;
-            transition: all var(--transition-fast);
-        }
-
-        .btn:hover {
-            background: var(--bg-node-hover);
-            border-color: rgba(255,255,255,0.2);
-        }
-
-        .btn-primary {
-            background: var(--accent-green);
-            border-color: var(--accent-green);
-        }
-
-        .btn-primary:hover {
-            background: #38a169;
-        }
-
-        /* Main Content */
-        .main-content {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-        }
-
-        /* Editor Panel */
-        .editor-panel {
-            width: 400px;
-            min-width: 300px;
-            max-width: 600px;
+            padding-top: calc(8px + var(--safe-top));
             background: var(--bg-secondary);
-            border-right: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            flex-direction: column;
-            transition: width var(--transition-normal);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            z-index: 100;
+            flex-shrink: 0;
         }
 
-        .editor-panel.collapsed {
-            width: 0;
-            min-width: 0;
-            overflow: hidden;
-        }
-
-        .editor-header {
+        .header-title {
+            font-size: 1rem;
+            font-weight: 600;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            padding: 12px 16px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            gap: 8px;
         }
 
-        .editor-header h2 {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+        .header-title .icon {
+            font-size: 1.25rem;
         }
 
-        .editor-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        #mermaid-input {
-            flex: 1;
-            width: 100%;
-            padding: 16px;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            border: none;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-size: 0.875rem;
-            line-height: 1.6;
-            resize: none;
-            outline: none;
-        }
-
-        #mermaid-input::placeholder {
-            color: var(--text-secondary);
-        }
-
-        .editor-actions {
-            padding: 12px 16px;
-            border-top: 1px solid rgba(255,255,255,0.1);
+        .header-actions {
             display: flex;
             gap: 8px;
         }
 
-        /* Canvas Container */
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 12px;
+            min-height: 40px;
+            min-width: 40px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: none;
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition);
+            white-space: nowrap;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+            background: var(--bg-node-hover);
+        }
+
+        .btn-icon {
+            padding: 8px;
+            font-size: 1.125rem;
+        }
+
+        .btn-primary {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .btn-primary:active {
+            background: var(--accent-green-dark);
+        }
+
+        /* Canvas */
         .canvas-container {
             flex: 1;
             position: relative;
             overflow: hidden;
             background: var(--bg-primary);
-            background-image:
-                radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0);
-            background-size: 40px 40px;
+            background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0);
+            background-size: 32px 32px;
         }
 
         .canvas-wrapper {
@@ -187,17 +145,10 @@
             width: 100%;
             height: 100%;
             transform-origin: 0 0;
+            will-change: transform;
         }
 
-        /* Mind Map */
-        .mindmap {
-            position: absolute;
-            top: 50%;
-            left: 80px;
-            transform: translateY(-50%);
-        }
-
-        /* SVG Lines */
+        /* SVG Connections */
         .connections-svg {
             position: absolute;
             top: 0;
@@ -212,59 +163,69 @@
             fill: none;
             stroke: var(--line-color);
             stroke-width: 2;
-            transition: stroke var(--transition-normal), opacity var(--transition-normal);
+            stroke-linecap: round;
+            transition: stroke 0.3s, opacity 0.3s;
         }
 
         .connection-line.active {
             stroke: var(--line-color-active);
         }
 
-        .connection-line.fading {
-            opacity: 0;
+        /* Mind Map */
+        .mindmap {
+            position: absolute;
+            top: 50%;
+            left: 60px;
         }
 
-        /* Node Styles */
+        /* Nodes */
         .node {
             position: absolute;
             display: flex;
             align-items: center;
-            gap: 0;
-            transition: transform var(--transition-normal), opacity var(--transition-normal);
             cursor: pointer;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                        opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: transform, opacity;
+        }
+
+        .node.animating {
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        opacity 0.3s ease;
         }
 
         .node.hidden {
             opacity: 0;
             pointer-events: none;
-            transform: translateX(-20px);
         }
 
         .node-content {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 10px 16px;
+            padding: 10px 14px;
             background: var(--bg-node);
-            border-radius: 8px;
+            border-radius: var(--radius);
             box-shadow: var(--shadow);
-            transition: all var(--transition-fast);
-            white-space: nowrap;
+            border: 2px solid transparent;
+            transition: all var(--transition);
             user-select: none;
-            border: 1px solid transparent;
+            -webkit-user-select: none;
         }
 
-        .node:hover .node-content {
-            background: var(--bg-node-hover);
-            box-shadow: var(--shadow-hover);
-            transform: translateY(-1px);
+        .node:active .node-content {
+            transform: scale(0.97);
         }
 
         .node.root .node-content {
             background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
-            padding: 14px 24px;
-            font-size: 1.125rem;
+            padding: 12px 20px;
+            border-radius: var(--radius-lg);
+        }
+
+        .node.root .node-label {
+            font-size: 1rem;
             font-weight: 600;
-            border-radius: 10px;
         }
 
         .node.expanded .node-content {
@@ -272,115 +233,156 @@
         }
 
         .node.leaf .node-content {
-            background: linear-gradient(135deg, var(--accent-green) 0%, #2f855a 100%);
+            background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-dark) 100%);
         }
 
         .node-label {
-            font-size: 0.9375rem;
+            font-size: 0.9rem;
             color: var(--text-primary);
             font-weight: 500;
+            white-space: nowrap;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .node.leaf .node-label {
-            font-weight: 400;
-        }
-
-        /* Expand/Collapse Toggle */
+        /* Toggle Button */
         .node-toggle {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 24px;
-            height: 24px;
-            margin-left: 8px;
-            background: var(--bg-node-collapsed);
-            border-radius: 4px;
+            width: 28px;
+            height: 28px;
+            margin-left: 4px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
             font-size: 0.75rem;
             font-weight: 700;
             color: var(--text-secondary);
-            transition: all var(--transition-fast);
+            transition: all var(--transition);
             flex-shrink: 0;
         }
 
-        .node:hover .node-toggle {
-            background: var(--accent-blue);
-            color: white;
+        .node-toggle .arrow {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .node.expanded .node-toggle .arrow {
+            transform: rotate(90deg);
         }
 
         .node.expanded .node-toggle {
             background: var(--accent-green);
             color: white;
-            transform: rotate(90deg);
         }
 
         .node.leaf .node-toggle {
             display: none;
         }
 
-        /* Zoom Controls */
-        .zoom-controls {
+        /* Child Count Badge */
+        .child-count {
             position: absolute;
-            bottom: 20px;
-            right: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            z-index: 50;
-        }
-
-        .zoom-btn {
-            width: 40px;
-            height: 40px;
+            top: -6px;
+            right: -6px;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 6px;
+            background: var(--accent-orange);
+            color: white;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 700;
             display: flex;
             align-items: center;
             justify-content: center;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .node:not(.expanded):not(.leaf) .child-count {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Highlighted */
+        .node.highlighted .node-content {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 4px rgba(66, 153, 225, 0.3);
+        }
+
+        /* Bottom Toolbar (Mobile) */
+        .bottom-toolbar {
+            display: none;
+            padding: 8px 16px;
+            padding-bottom: calc(8px + var(--safe-bottom));
             background: var(--bg-secondary);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 8px;
-            color: var(--text-primary);
-            font-size: 1.25rem;
-            cursor: pointer;
-            transition: all var(--transition-fast);
+            border-top: 1px solid rgba(255,255,255,0.08);
+            z-index: 100;
+            flex-shrink: 0;
         }
 
-        .zoom-btn:hover {
-            background: var(--bg-node-hover);
+        .toolbar-row {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
         }
 
-        .zoom-level {
+        .toolbar-row + .toolbar-row {
+            margin-top: 8px;
+        }
+
+        .btn-toolbar {
+            flex: 1;
+            max-width: 120px;
+        }
+
+        /* Floating Controls */
+        .float-controls {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 50;
+        }
+
+        .float-controls.top-left {
+            top: 12px;
+            left: 12px;
+        }
+
+        .float-controls.top-right {
+            top: 12px;
+            right: 12px;
+        }
+
+        .float-controls.bottom-right {
+            bottom: 12px;
+            right: 12px;
+        }
+
+        .float-controls.bottom-left {
+            bottom: 12px;
+            left: 12px;
+        }
+
+        .zoom-display {
             text-align: center;
             font-size: 0.75rem;
-            color: var(--text-secondary);
-            padding: 4px;
+            color: var(--text-muted);
+            padding: 4px 0;
         }
 
-        /* Toggle Editor Button */
-        .toggle-editor {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 50;
-        }
-
-        /* Stats */
-        .stats {
-            position: absolute;
-            top: 20px;
-            right: 20px;
+        /* Stats Badge */
+        .stats-badge {
+            display: flex;
+            gap: 12px;
+            padding: 8px 12px;
             background: var(--bg-secondary);
-            padding: 8px 16px;
-            border-radius: 8px;
+            border-radius: var(--radius);
             font-size: 0.75rem;
             color: var(--text-secondary);
-            z-index: 50;
-            display: flex;
-            gap: 16px;
-        }
-
-        .stat-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
         }
 
         .stat-value {
@@ -389,38 +391,159 @@
         }
 
         /* Search */
-        .search-container {
-            position: absolute;
-            top: 70px;
-            right: 20px;
-            z-index: 50;
+        .search-box {
+            position: relative;
         }
 
         .search-input {
-            width: 200px;
-            padding: 8px 12px;
+            width: 180px;
+            padding: 10px 12px;
+            padding-left: 36px;
             background: var(--bg-secondary);
             border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 6px;
+            border-radius: var(--radius);
             color: var(--text-primary);
             font-size: 0.875rem;
             outline: none;
-            transition: all var(--transition-fast);
+            transition: all var(--transition);
         }
 
         .search-input:focus {
             border-color: var(--accent-blue);
-            width: 250px;
+            width: 220px;
         }
 
         .search-input::placeholder {
-            color: var(--text-secondary);
+            color: var(--text-muted);
         }
 
-        /* Highlight */
-        .node.highlighted .node-content {
-            border-color: var(--accent-blue);
-            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.3);
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            pointer-events: none;
+        }
+
+        /* Editor Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 200;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            max-height: 85vh;
+            background: var(--bg-secondary);
+            border-radius: 20px 20px 0 0;
+            z-index: 201;
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            padding-bottom: var(--safe-bottom);
+        }
+
+        .modal-overlay.visible .modal {
+            transform: translateY(0);
+        }
+
+        .modal-handle {
+            width: 40px;
+            height: 4px;
+            background: var(--text-muted);
+            border-radius: 2px;
+            margin: 12px auto;
+            flex-shrink: 0;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            flex-shrink: 0;
+        }
+
+        .modal-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .editor-textarea {
+            flex: 1;
+            width: 100%;
+            padding: 16px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border: none;
+            font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+            font-size: 0.875rem;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+        }
+
+        .modal-footer {
+            padding: 12px 16px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .modal-footer .btn {
+            flex: 1;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            padding: 12px 20px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            z-index: 300;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 0.875rem;
+            white-space: nowrap;
+        }
+
+        .toast.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
         }
 
         /* Context Menu */
@@ -428,42 +551,52 @@
             position: fixed;
             background: var(--bg-secondary);
             border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 8px;
+            border-radius: var(--radius-lg);
             padding: 8px 0;
-            min-width: 160px;
-            box-shadow: var(--shadow-hover);
+            min-width: 180px;
+            box-shadow: var(--shadow-lg);
             z-index: 200;
-            display: none;
+            opacity: 0;
+            visibility: hidden;
+            transform: scale(0.95);
+            transition: all 0.15s ease;
         }
 
         .context-menu.visible {
-            display: block;
+            opacity: 1;
+            visibility: visible;
+            transform: scale(1);
         }
 
         .context-menu-item {
-            padding: 8px 16px;
+            padding: 12px 16px;
             cursor: pointer;
             font-size: 0.875rem;
             color: var(--text-primary);
-            transition: background var(--transition-fast);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background var(--transition);
         }
 
-        .context-menu-item:hover {
+        .context-menu-item:active {
             background: var(--bg-node-hover);
+        }
+
+        .context-menu-item .icon {
+            width: 20px;
+            text-align: center;
+            color: var(--text-secondary);
         }
 
         /* Minimap */
         .minimap {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            width: 200px;
-            height: 150px;
+            width: 140px;
+            height: 100px;
             background: var(--bg-secondary);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 8px;
+            border-radius: var(--radius);
             overflow: hidden;
-            z-index: 50;
+            box-shadow: var(--shadow);
         }
 
         .minimap-content {
@@ -475,151 +608,409 @@
         .minimap-viewport {
             position: absolute;
             border: 2px solid var(--accent-blue);
-            background: rgba(66, 153, 225, 0.1);
-            pointer-events: none;
+            background: rgba(66, 153, 225, 0.15);
+            border-radius: 2px;
         }
 
-        /* Animations */
-        @keyframes nodeAppear {
-            from {
-                opacity: 0;
-                transform: translateX(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        .node.appearing {
-            animation: nodeAppear 0.3s ease forwards;
-        }
-
-        /* Resizer */
-        .resizer {
+        .minimap-dot {
             position: absolute;
-            right: 0;
-            top: 0;
             width: 4px;
-            height: 100%;
-            cursor: col-resize;
-            background: transparent;
-            transition: background var(--transition-fast);
+            height: 4px;
+            border-radius: 50%;
         }
 
-        .resizer:hover {
-            background: var(--accent-blue);
-        }
-
-        /* Loading */
-        .loading {
-            position: absolute;
+        /* Help Tooltip */
+        .help-tooltip {
+            position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
+            background: var(--bg-secondary);
+            padding: 20px 24px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            z-index: 250;
+            max-width: 320px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .help-tooltip.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .help-title {
             font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .help-list {
+            list-style: none;
+            font-size: 0.875rem;
             color: var(--text-secondary);
         }
 
-        /* Toast */
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: var(--bg-secondary);
+        .help-list li {
+            padding: 6px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .help-list .key {
+            background: var(--bg-tertiary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.75rem;
             color: var(--text-primary);
-            padding: 12px 24px;
-            border-radius: 8px;
-            box-shadow: var(--shadow-hover);
-            z-index: 300;
-            transition: transform var(--transition-normal);
         }
 
-        .toast.visible {
-            transform: translateX(-50%) translateY(0);
-        }
+        /* Desktop Styles */
+        @media (min-width: 769px) {
+            .header {
+                padding: 12px 24px;
+            }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .editor-panel {
-                position: absolute;
-                left: 0;
-                top: 0;
-                height: 100%;
-                z-index: 100;
-                width: 100%;
-                max-width: 100%;
+            .header-title {
+                font-size: 1.125rem;
+            }
+
+            .btn-mobile-only {
+                display: none;
+            }
+
+            .search-input {
+                width: 220px;
+            }
+
+            .search-input:focus {
+                width: 280px;
+            }
+
+            .float-controls.bottom-right {
+                bottom: 20px;
+                right: 20px;
+            }
+
+            .float-controls.bottom-left {
+                bottom: 20px;
+                left: 20px;
+            }
+
+            .float-controls.top-right {
+                top: 20px;
+                right: 20px;
             }
 
             .minimap {
+                width: 180px;
+                height: 130px;
+            }
+
+            .node-label {
+                max-width: 280px;
+            }
+
+            .modal {
+                top: 50%;
+                left: 50%;
+                right: auto;
+                bottom: auto;
+                transform: translate(-50%, -50%) scale(0.95);
+                width: 600px;
+                max-height: 80vh;
+                border-radius: var(--radius-lg);
+                padding-bottom: 0;
+            }
+
+            .modal-overlay.visible .modal {
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            .modal-handle {
+                display: none;
+            }
+        }
+
+        /* Mobile Styles */
+        @media (max-width: 768px) {
+            .header-title span:not(.icon) {
                 display: none;
             }
 
-            .stats {
+            .btn-desktop-only {
                 display: none;
             }
+
+            .bottom-toolbar {
+                display: block;
+            }
+
+            .float-controls.top-right .search-box,
+            .float-controls.top-right .stats-badge {
+                display: none;
+            }
+
+            .float-controls.bottom-left {
+                display: none;
+            }
+
+            .toast {
+                bottom: 140px;
+            }
+        }
+
+        /* Small Mobile */
+        @media (max-width: 380px) {
+            .btn-toolbar span {
+                display: none;
+            }
+
+            .btn-toolbar {
+                max-width: 50px;
+            }
+        }
+
+        /* Landscape Mobile */
+        @media (max-height: 500px) {
+            .bottom-toolbar {
+                padding: 6px 16px;
+            }
+
+            .toolbar-row + .toolbar-row {
+                margin-top: 4px;
+            }
+
+            .modal {
+                max-height: 95vh;
+            }
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--bg-tertiary);
+            border-top-color: var(--accent-green);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Pulse Animation */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading {
+            animation: pulse 1.5s ease-in-out infinite;
         }
     </style>
 </head>
 <body>
-    <div class="app-container">
+    <div class="app">
+        <!-- Header -->
         <header class="header">
-            <h1>Expandable Mind Map</h1>
-            <div class="header-controls">
-                <button class="btn" onclick="expandAll()">
-                    <span>Expand All</span>
+            <div class="header-title">
+                <span class="icon">🧠</span>
+                <span>Mind Map Viewer</span>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-icon btn-desktop-only" onclick="expandAll()" title="Expand All">
+                    ⊕
                 </button>
-                <button class="btn" onclick="collapseAll()">
-                    <span>Collapse All</span>
+                <button class="btn btn-icon btn-desktop-only" onclick="collapseAll()" title="Collapse All">
+                    ⊖
                 </button>
-                <button class="btn" onclick="centerView()">
-                    <span>Center</span>
+                <button class="btn btn-icon" onclick="centerView()" title="Center View">
+                    ⌖
                 </button>
-                <button class="btn btn-primary" onclick="exportImage()">
-                    <span>Export PNG</span>
+                <button class="btn btn-icon" onclick="showEditor()" title="Edit">
+                    ✎
+                </button>
+                <button class="btn btn-icon btn-mobile-only" onclick="showHelp()" title="Help">
+                    ?
                 </button>
             </div>
         </header>
 
-        <main class="main-content">
-            <aside class="editor-panel" id="editor-panel">
-                <div class="resizer" id="resizer"></div>
-                <div class="editor-header">
-                    <h2>Mermaid Input</h2>
-                </div>
-                <div class="editor-content">
-                    <textarea id="mermaid-input" placeholder="Enter Mermaid mindmap syntax...
+        <!-- Canvas -->
+        <div class="canvas-container" id="canvas-container">
+            <div class="canvas-wrapper" id="canvas-wrapper">
+                <svg class="connections-svg" id="connections-svg"></svg>
+                <div class="mindmap" id="mindmap"></div>
+            </div>
 
-Example:
-mindmap
-  root((Project Overview))
+            <!-- Floating Controls - Top Right -->
+            <div class="float-controls top-right">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" id="search-input" placeholder="Search...">
+                </div>
+                <div class="stats-badge" id="stats">
+                    <span>Nodes: <span class="stat-value" id="node-count">0</span></span>
+                    <span>Visible: <span class="stat-value" id="visible-count">0</span></span>
+                </div>
+            </div>
+
+            <!-- Floating Controls - Bottom Right (Zoom) -->
+            <div class="float-controls bottom-right">
+                <button class="btn btn-icon" onclick="zoomIn()">+</button>
+                <div class="zoom-display" id="zoom-level">100%</div>
+                <button class="btn btn-icon" onclick="zoomOut()">−</button>
+            </div>
+
+            <!-- Floating Controls - Bottom Left (Minimap) -->
+            <div class="float-controls bottom-left">
+                <div class="minimap" id="minimap">
+                    <div class="minimap-content" id="minimap-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Toolbar (Mobile) -->
+        <div class="bottom-toolbar">
+            <div class="toolbar-row">
+                <button class="btn btn-toolbar" onclick="expandAll()">
+                    <span>⊕</span> <span>Expand</span>
+                </button>
+                <button class="btn btn-toolbar" onclick="collapseAll()">
+                    <span>⊖</span> <span>Collapse</span>
+                </button>
+                <button class="btn btn-toolbar" onclick="fitToScreen()">
+                    <span>⤢</span> <span>Fit</span>
+                </button>
+                <button class="btn btn-toolbar" onclick="showSearch()">
+                    <span>🔍</span> <span>Search</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Editor Modal -->
+    <div class="modal-overlay" id="editor-modal" onclick="handleModalOverlayClick(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-handle"></div>
+            <div class="modal-header">
+                <span class="modal-title">Mermaid Editor</span>
+                <button class="btn btn-icon" onclick="hideEditor()">✕</button>
+            </div>
+            <div class="modal-body">
+                <textarea class="editor-textarea" id="mermaid-input" placeholder="Enter Mermaid mindmap syntax..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="loadSample()">Sample</button>
+                <button class="btn btn-primary" onclick="renderAndClose()">Render</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="context-menu">
+        <div class="context-menu-item" onclick="expandNode(contextNode)">
+            <span class="icon">⊕</span> Expand
+        </div>
+        <div class="context-menu-item" onclick="collapseNode(contextNode)">
+            <span class="icon">⊖</span> Collapse
+        </div>
+        <div class="context-menu-item" onclick="expandSubtree(contextNode)">
+            <span class="icon">⊞</span> Expand Subtree
+        </div>
+        <div class="context-menu-item" onclick="collapseSubtree(contextNode)">
+            <span class="icon">⊟</span> Collapse Subtree
+        </div>
+        <div class="context-menu-item" onclick="focusNode(contextNode)">
+            <span class="icon">⌖</span> Focus
+        </div>
+    </div>
+
+    <!-- Help Tooltip -->
+    <div class="help-tooltip" id="help-tooltip" onclick="hideHelp()">
+        <div class="help-title">📱 Gestures</div>
+        <ul class="help-list">
+            <li><span class="key">Tap</span> Toggle node expand/collapse</li>
+            <li><span class="key">Drag</span> Pan the canvas</li>
+            <li><span class="key">Pinch</span> Zoom in/out</li>
+            <li><span class="key">Long Press</span> Context menu</li>
+            <li><span class="key">Double Tap</span> Fit to screen</li>
+        </ul>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ==================== State ====================
+        let treeData = null;
+        let nodeElements = new Map();
+        let nodePositions = new Map();
+        let expandedNodes = new Set();
+        let contextNode = null;
+        let allNodes = new Map();
+
+        // View state
+        let scale = 1;
+        let panX = 0;
+        let panY = 0;
+
+        // Touch state
+        let touchState = {
+            isDragging: false,
+            isPinching: false,
+            startX: 0,
+            startY: 0,
+            startPanX: 0,
+            startPanY: 0,
+            startScale: 1,
+            startDistance: 0,
+            lastTapTime: 0,
+            longPressTimer: null,
+            longPressNode: null
+        };
+
+        // Layout config
+        const LAYOUT = {
+            nodeHeight: 44,
+            nodeGap: 14,
+            levelGap: 180,
+            mobileGap: 140
+        };
+
+        // Sample data
+        const SAMPLE_DATA = `mindmap
+  root((Gemini Astra Prototype))
     Overview
-    Features
-      Feature A
-      Feature B
-    Technologies Used
-      Flask
-      React
-      PostgreSQL
-    Installation
-    Usage">mindmap
-  root((Gemini Astra Prototype Overview))
-    Overview
+      Project Goals
+      Target Audience
+      Key Benefits
     Features
       Real-time Voice Interaction
       Multi-modal Input Support
       Screen Sharing Capability
       Intelligent Response Generation
-    Technologies Used
-      Flask
-      Flask-SocketIO
-      Google Generative AI
-      Eleven Labs TTS
-      PIL Pillow
-      Pydub
-      SpeechRecognition
-      Socket.IO
+    Technologies
+      Backend
+        Flask
+        Flask-SocketIO
+        Socket.IO
+      AI Services
+        Google Generative AI
+        Eleven Labs TTS
+        SpeechRecognition
+      Media Processing
+        PIL Pillow
+        Pydub
     Installation
       Clone Repository
       Install Dependencies
@@ -632,119 +1023,39 @@ mindmap
     Logging
       Console Output
       File Logging
-      Error Tracking</textarea>
-                </div>
-                <div class="editor-actions">
-                    <button class="btn btn-primary" onclick="renderMindmap()" style="flex:1">
-                        Render Mind Map
-                    </button>
-                </div>
-            </aside>
+      Error Tracking`;
 
-            <div class="canvas-container" id="canvas-container">
-                <button class="btn toggle-editor" onclick="toggleEditor()">
-                    <span id="toggle-text">Hide Editor</span>
-                </button>
+        // ==================== Initialization ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            initTouchHandlers();
+            initSearch();
+            initKeyboard();
 
-                <div class="stats" id="stats">
-                    <div class="stat-item">
-                        <span>Nodes:</span>
-                        <span class="stat-value" id="node-count">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span>Visible:</span>
-                        <span class="stat-value" id="visible-count">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span>Depth:</span>
-                        <span class="stat-value" id="depth-count">0</span>
-                    </div>
-                </div>
+            // Load saved data or sample
+            const saved = localStorage.getItem('mindmap-data');
+            document.getElementById('mermaid-input').value = saved || SAMPLE_DATA;
 
-                <div class="search-container">
-                    <input type="text" class="search-input" id="search-input" placeholder="Search nodes... (Ctrl+F)">
-                </div>
-
-                <div class="canvas-wrapper" id="canvas-wrapper">
-                    <svg class="connections-svg" id="connections-svg"></svg>
-                    <div class="mindmap" id="mindmap"></div>
-                </div>
-
-                <div class="zoom-controls">
-                    <button class="zoom-btn" onclick="zoomIn()">+</button>
-                    <div class="zoom-level" id="zoom-level">100%</div>
-                    <button class="zoom-btn" onclick="zoomOut()">-</button>
-                    <button class="zoom-btn" onclick="resetZoom()" style="font-size:0.75rem">Reset</button>
-                </div>
-
-                <div class="minimap" id="minimap">
-                    <div class="minimap-content" id="minimap-content"></div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <div class="context-menu" id="context-menu">
-        <div class="context-menu-item" onclick="expandNode(contextNode)">Expand</div>
-        <div class="context-menu-item" onclick="collapseNode(contextNode)">Collapse</div>
-        <div class="context-menu-item" onclick="expandChildren(contextNode)">Expand Children</div>
-        <div class="context-menu-item" onclick="collapseChildren(contextNode)">Collapse Children</div>
-        <div class="context-menu-item" onclick="focusNode(contextNode)">Focus</div>
-    </div>
-
-    <div class="toast" id="toast"></div>
-
-    <script>
-        // ==================== State ====================
-        let treeData = null;
-        let nodeElements = new Map();
-        let nodePositions = new Map();
-        let expandedNodes = new Set();
-        let contextNode = null;
-
-        // View state
-        let scale = 1;
-        let panX = 0;
-        let panY = 0;
-        let isDragging = false;
-        let dragStart = { x: 0, y: 0 };
-        let panStart = { x: 0, y: 0 };
-
-        // Layout config
-        const LAYOUT = {
-            nodeHeight: 44,
-            nodeGap: 12,
-            levelGap: 200,
-            rootOffset: 100
-        };
+            // Initial render
+            setTimeout(() => {
+                renderMindmap();
+                fitToScreen();
+            }, 100);
+        });
 
         // ==================== Mermaid Parser ====================
         function parseMermaid(text) {
             const lines = text.split('\n');
             let root = null;
             const stack = [];
-            let lastDepth = -1;
 
             for (let line of lines) {
-                // Skip empty lines and the 'mindmap' keyword
                 if (!line.trim() || line.trim() === 'mindmap') continue;
 
-                // Calculate indentation depth
                 const indent = line.search(/\S/);
                 const depth = Math.floor(indent / 2);
-
-                // Extract node text
                 let content = line.trim();
 
-                // Handle different node formats
-                // root((text)) - root node
-                // ((text)) - rounded rectangle
-                // (text) - rounded
-                // [text] - square
-                // {{text}} - hexagon
-                // ))text(( - cloud
-                // Just text - default
-
+                // Parse node format
                 let label = content;
                 let isRoot = false;
 
@@ -762,73 +1073,66 @@ mindmap
                 }
 
                 const node = {
-                    id: generateId(),
+                    id: 'n_' + Math.random().toString(36).substr(2, 9),
                     label: label,
                     children: [],
                     depth: depth,
                     isRoot: isRoot
                 };
 
+                allNodes.set(node.id, node);
+
                 if (isRoot || depth === 0 || !root) {
                     root = node;
                     stack.length = 0;
                     stack.push(node);
                 } else {
-                    // Find parent based on depth
-                    while (stack.length > depth) {
-                        stack.pop();
-                    }
-
+                    while (stack.length > depth) stack.pop();
                     const parent = stack[stack.length - 1];
                     if (parent) {
                         parent.children.push(node);
+                        node.parent = parent;
                     }
                     stack.push(node);
                 }
-
-                lastDepth = depth;
             }
 
             return root;
         }
 
-        function generateId() {
-            return 'node_' + Math.random().toString(36).substr(2, 9);
-        }
-
         // ==================== Layout Engine ====================
         function calculateLayout(node, depth = 0, yOffset = 0) {
+            const isMobile = window.innerWidth <= 768;
+            const gap = isMobile ? LAYOUT.mobileGap : LAYOUT.levelGap;
+
             node._depth = depth;
             node._visible = true;
 
-            // Calculate subtree height
             let subtreeHeight = 0;
-            const visibleChildren = node.children.filter(child => {
-                if (!expandedNodes.has(node.id) && depth > 0) {
-                    child._visible = false;
-                    return false;
-                }
-                return true;
-            });
+            const isExpanded = expandedNodes.has(node.id) || depth === 0;
 
-            if (visibleChildren.length > 0 && (expandedNodes.has(node.id) || depth === 0)) {
-                for (let i = 0; i < visibleChildren.length; i++) {
-                    const childHeight = calculateLayout(
-                        visibleChildren[i],
-                        depth + 1,
-                        yOffset + subtreeHeight
-                    );
+            if (isExpanded && node.children.length > 0) {
+                for (let i = 0; i < node.children.length; i++) {
+                    const child = node.children[i];
+                    child._visible = true;
+                    const childHeight = calculateLayout(child, depth + 1, yOffset + subtreeHeight);
                     subtreeHeight += childHeight;
-                    if (i < visibleChildren.length - 1) {
+                    if (i < node.children.length - 1) {
                         subtreeHeight += LAYOUT.nodeGap;
                     }
                 }
+            } else {
+                // Mark children as not visible
+                function hideChildren(n) {
+                    for (const child of n.children) {
+                        child._visible = false;
+                        hideChildren(child);
+                    }
+                }
+                hideChildren(node);
             }
 
-            const nodeHeight = Math.max(LAYOUT.nodeHeight, subtreeHeight);
-
-            // Position this node
-            const x = depth * LAYOUT.levelGap;
+            const x = depth * gap;
             const y = yOffset + (subtreeHeight > 0 ? subtreeHeight / 2 : LAYOUT.nodeHeight / 2);
 
             node._x = x;
@@ -843,21 +1147,21 @@ mindmap
         // ==================== Rendering ====================
         function renderMindmap() {
             const input = document.getElementById('mermaid-input').value;
+            allNodes.clear();
             treeData = parseMermaid(input);
 
             if (!treeData) {
-                showToast('Invalid mindmap syntax');
+                showToast('Invalid syntax');
                 return;
             }
 
-            // Initialize all nodes as expanded
-            initExpandedNodes(treeData);
+            // Save to localStorage
+            localStorage.setItem('mindmap-data', input);
 
-            // Render
+            // Initialize expanded
+            initExpandedNodes(treeData);
             updateLayout();
             updateStats();
-            centerView();
-            showToast('Mind map rendered successfully');
         }
 
         function initExpandedNodes(node) {
@@ -869,76 +1173,129 @@ mindmap
 
         function updateLayout() {
             if (!treeData) return;
-
-            // Calculate layout
+            nodePositions.clear();
             calculateLayout(treeData);
-
-            // Render nodes
             renderNodes();
-
-            // Render connections
             renderConnections();
-
-            // Update minimap
             updateMinimap();
         }
 
         function renderNodes() {
             const container = document.getElementById('mindmap');
-            container.innerHTML = '';
+            const existingNodes = new Map(nodeElements);
             nodeElements.clear();
 
             function renderNode(node) {
-                if (!node._visible) return;
+                if (!node._visible) {
+                    const existing = existingNodes.get(node.id);
+                    if (existing) existing.remove();
+                    return;
+                }
 
-                const el = document.createElement('div');
+                let el = existingNodes.get(node.id);
+                const isNew = !el;
+
+                if (isNew) {
+                    el = document.createElement('div');
+                    el.className = 'node';
+                    el.id = node.id;
+                    container.appendChild(el);
+                }
+
+                // Update classes
                 el.className = 'node';
-                el.id = node.id;
-
                 if (node._depth === 0) el.classList.add('root');
                 if (node.children.length === 0) el.classList.add('leaf');
                 if (expandedNodes.has(node.id) && node.children.length > 0) {
                     el.classList.add('expanded');
                 }
+                if (isNew) el.classList.add('animating');
 
+                // Position
                 el.style.left = `${node._x}px`;
                 el.style.top = `${node._y}px`;
                 el.style.transform = 'translateY(-50%)';
 
+                // Count descendants
+                const descendantCount = countDescendants(node);
                 const hasChildren = node.children.length > 0;
 
                 el.innerHTML = `
                     <div class="node-content">
                         <span class="node-label">${escapeHtml(node.label)}</span>
                     </div>
-                    ${hasChildren ? `<div class="node-toggle">›</div>` : ''}
+                    ${hasChildren ? `
+                        <div class="node-toggle">
+                            <span class="arrow">›</span>
+                        </div>
+                        <div class="child-count">${descendantCount}</div>
+                    ` : ''}
                 `;
 
                 // Event handlers
-                el.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (hasChildren) {
-                        toggleNode(node);
-                    }
-                });
+                setupNodeEvents(el, node);
 
-                el.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    showContextMenu(e, node);
-                });
-
-                container.appendChild(el);
                 nodeElements.set(node.id, el);
+                existingNodes.delete(node.id);
 
                 // Render children
-                if (expandedNodes.has(node.id) || node._depth === 0) {
-                    for (const child of node.children) {
-                        renderNode(child);
-                    }
+                for (const child of node.children) {
+                    renderNode(child);
                 }
             }
 
             renderNode(treeData);
+
+            // Remove old nodes
+            existingNodes.forEach(el => el.remove());
+        }
+
+        function setupNodeEvents(el, node) {
+            const hasChildren = node.children.length > 0;
+
+            // Touch events
+            el.addEventListener('touchstart', (e) => {
+                touchState.longPressNode = node;
+                touchState.longPressTimer = setTimeout(() => {
+                    if (touchState.longPressNode === node) {
+                        vibrate(50);
+                        showContextMenu(e.touches[0], node);
+                    }
+                }, 500);
+            }, { passive: true });
+
+            el.addEventListener('touchend', (e) => {
+                clearTimeout(touchState.longPressTimer);
+                touchState.longPressNode = null;
+            }, { passive: true });
+
+            el.addEventListener('touchmove', () => {
+                clearTimeout(touchState.longPressTimer);
+                touchState.longPressNode = null;
+            }, { passive: true });
+
+            // Click/tap
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (hasChildren) {
+                    vibrate(10);
+                    toggleNode(node);
+                }
+            });
+
+            // Right click
+            el.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                showContextMenu(e, node);
+            });
+        }
+
+        function countDescendants(node) {
+            let count = node.children.length;
+            for (const child of node.children) {
+                count += countDescendants(child);
+            }
+            return count;
         }
 
         function renderConnections() {
@@ -949,38 +1306,22 @@ mindmap
                 if (!parent._visible || !child._visible) return;
 
                 const parentEl = nodeElements.get(parent.id);
-                const childEl = nodeElements.get(child.id);
-
-                if (!parentEl || !childEl) return;
-
-                const parentRect = parentEl.querySelector('.node-content').getBoundingClientRect();
-                const childRect = childEl.querySelector('.node-content').getBoundingClientRect();
-
-                // Get positions relative to mindmap container
-                const container = document.getElementById('mindmap');
-                const containerRect = container.getBoundingClientRect();
+                if (!parentEl) return;
 
                 const x1 = parent._x + parentEl.querySelector('.node-content').offsetWidth;
                 const y1 = parent._y;
                 const x2 = child._x;
                 const y2 = child._y;
 
-                // Create bezier curve path
                 const midX = (x1 + x2) / 2;
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 path.setAttribute('d', `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
-                path.setAttribute('class', 'connection-line');
-
-                if (expandedNodes.has(child.id)) {
-                    path.classList.add('active');
-                }
-
+                path.setAttribute('class', 'connection-line' + (expandedNodes.has(child.id) ? ' active' : ''));
                 svg.appendChild(path);
             }
 
             function traverse(node) {
                 if (!node._visible) return;
-
                 if (expandedNodes.has(node.id) || node._depth === 0) {
                     for (const child of node.children) {
                         if (child._visible) {
@@ -991,7 +1332,7 @@ mindmap
                 }
             }
 
-            traverse(treeData);
+            if (treeData) traverse(treeData);
         }
 
         // ==================== Node Operations ====================
@@ -1005,18 +1346,17 @@ mindmap
 
         function expandNode(node) {
             if (!node) return;
+            hideContextMenu();
             expandedNodes.add(node.id);
-            updateLayout();
-            updateStats();
+            animateLayout();
         }
 
         function collapseNode(node) {
             if (!node || node._depth === 0) return;
+            hideContextMenu();
             expandedNodes.delete(node.id);
-            // Also collapse all descendants
             collapseDescendants(node);
-            updateLayout();
-            updateStats();
+            animateLayout();
         }
 
         function collapseDescendants(node) {
@@ -1026,96 +1366,167 @@ mindmap
             }
         }
 
-        function expandChildren(node) {
+        function expandSubtree(node) {
             if (!node) return;
-            expandedNodes.add(node.id);
-            for (const child of node.children) {
-                expandedNodes.add(child.id);
+            hideContextMenu();
+            function expand(n) {
+                expandedNodes.add(n.id);
+                for (const child of n.children) expand(child);
             }
-            updateLayout();
-            updateStats();
+            expand(node);
+            animateLayout();
+            showToast('Subtree expanded');
         }
 
-        function collapseChildren(node) {
+        function collapseSubtree(node) {
             if (!node) return;
+            hideContextMenu();
+            expandedNodes.add(node.id);
             for (const child of node.children) {
                 expandedNodes.delete(child.id);
                 collapseDescendants(child);
             }
-            updateLayout();
-            updateStats();
+            animateLayout();
+            showToast('Subtree collapsed');
         }
 
         function expandAll() {
             if (!treeData) return;
             function expand(node) {
                 expandedNodes.add(node.id);
-                for (const child of node.children) {
-                    expand(child);
-                }
+                for (const child of node.children) expand(child);
             }
             expand(treeData);
-            updateLayout();
-            updateStats();
-            showToast('All nodes expanded');
+            animateLayout();
+            showToast('All expanded');
         }
 
         function collapseAll() {
             if (!treeData) return;
             expandedNodes.clear();
-            expandedNodes.add(treeData.id); // Keep root expanded
+            expandedNodes.add(treeData.id);
+            animateLayout();
+            showToast('All collapsed');
+        }
+
+        function animateLayout() {
+            document.querySelectorAll('.node').forEach(el => el.classList.add('animating'));
             updateLayout();
             updateStats();
-            showToast('All nodes collapsed');
+            setTimeout(() => {
+                document.querySelectorAll('.node').forEach(el => el.classList.remove('animating'));
+            }, 400);
         }
 
         function focusNode(node) {
             if (!node) return;
-            const wrapper = document.getElementById('canvas-wrapper');
+            hideContextMenu();
+
+            // Expand path to node
+            let current = node.parent;
+            while (current) {
+                expandedNodes.add(current.id);
+                current = current.parent;
+            }
+            updateLayout();
+
             const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
 
-            const containerRect = container.getBoundingClientRect();
-            const targetX = containerRect.width / 2 - node._x * scale - 100;
-            const targetY = containerRect.height / 2 - node._y * scale;
+            panX = rect.width / 2 - node._x * scale - 100;
+            panY = rect.height / 2 - node._y * scale;
 
-            panX = targetX;
-            panY = targetY;
             updateTransform();
         }
 
         // ==================== View Controls ====================
         function zoomIn() {
-            scale = Math.min(scale * 1.2, 3);
+            const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+
+            const newScale = Math.min(scale * 1.25, 3);
+            const ratio = newScale / scale;
+
+            panX = centerX - (centerX - panX) * ratio;
+            panY = centerY - (centerY - panY) * ratio;
+            scale = newScale;
+
             updateTransform();
+            vibrate(5);
         }
 
         function zoomOut() {
-            scale = Math.max(scale / 1.2, 0.3);
-            updateTransform();
-        }
+            const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
 
-        function resetZoom() {
-            scale = 1;
-            panX = 0;
-            panY = 0;
+            const newScale = Math.max(scale / 1.25, 0.2);
+            const ratio = newScale / scale;
+
+            panX = centerX - (centerX - panX) * ratio;
+            panY = centerY - (centerY - panY) * ratio;
+            scale = newScale;
+
             updateTransform();
+            vibrate(5);
         }
 
         function centerView() {
             if (!treeData) return;
-            const container = document.getElementById('canvas-container');
-            const containerRect = container.getBoundingClientRect();
 
-            // Calculate bounds
+            const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
+
             let minY = Infinity, maxY = -Infinity;
-            nodePositions.forEach(({ y }) => {
-                minY = Math.min(minY, y);
-                maxY = Math.max(maxY, y);
+            nodePositions.forEach(({ y, node }) => {
+                if (node._visible) {
+                    minY = Math.min(minY, y);
+                    maxY = Math.max(maxY, y);
+                }
             });
 
             const centerY = (minY + maxY) / 2;
-            panX = 80;
-            panY = containerRect.height / 2 - centerY * scale;
+            panX = 40;
+            panY = rect.height / 2 - centerY * scale;
+
+            updateTransform();
+        }
+
+        function fitToScreen() {
+            if (!treeData) return;
+
+            const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
+
+            let minX = Infinity, maxX = -Infinity;
+            let minY = Infinity, maxY = -Infinity;
+
+            nodePositions.forEach(({ x, y, node }) => {
+                if (node._visible) {
+                    minX = Math.min(minX, x);
+                    maxX = Math.max(maxX, x + 200);
+                    minY = Math.min(minY, y - 25);
+                    maxY = Math.max(maxY, y + 25);
+                }
+            });
+
+            const contentWidth = maxX - minX + 80;
+            const contentHeight = maxY - minY + 80;
+
+            const scaleX = rect.width / contentWidth;
+            const scaleY = rect.height / contentHeight;
+            scale = Math.min(scaleX, scaleY, 1.5);
+            scale = Math.max(scale, 0.3);
+
+            const centerX = (minX + maxX) / 2;
+            const centerY = (minY + maxY) / 2;
+
+            panX = rect.width / 2 - centerX * scale;
+            panY = rect.height / 2 - centerY * scale;
+
             updateTransform();
         }
 
@@ -1126,91 +1537,156 @@ mindmap
             updateMinimap();
         }
 
-        // ==================== Pan & Zoom ====================
-        function initPanZoom() {
+        // ==================== Touch Handlers ====================
+        function initTouchHandlers() {
             const container = document.getElementById('canvas-container');
 
+            // Touch start
+            container.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    touchState.isDragging = true;
+                    touchState.startX = e.touches[0].clientX;
+                    touchState.startY = e.touches[0].clientY;
+                    touchState.startPanX = panX;
+                    touchState.startPanY = panY;
+                } else if (e.touches.length === 2) {
+                    touchState.isDragging = false;
+                    touchState.isPinching = true;
+                    touchState.startDistance = getTouchDistance(e.touches);
+                    touchState.startScale = scale;
+
+                    const center = getTouchCenter(e.touches);
+                    touchState.pinchCenterX = center.x;
+                    touchState.pinchCenterY = center.y;
+                }
+            }, { passive: true });
+
+            // Touch move
+            container.addEventListener('touchmove', (e) => {
+                if (touchState.isPinching && e.touches.length === 2) {
+                    e.preventDefault();
+
+                    const distance = getTouchDistance(e.touches);
+                    const newScale = Math.max(0.2, Math.min(3, touchState.startScale * (distance / touchState.startDistance)));
+
+                    const rect = container.getBoundingClientRect();
+                    const centerX = touchState.pinchCenterX - rect.left;
+                    const centerY = touchState.pinchCenterY - rect.top;
+
+                    const ratio = newScale / scale;
+                    panX = centerX - (centerX - panX) * ratio;
+                    panY = centerY - (centerY - panY) * ratio;
+                    scale = newScale;
+
+                    updateTransform();
+                } else if (touchState.isDragging && e.touches.length === 1) {
+                    const dx = e.touches[0].clientX - touchState.startX;
+                    const dy = e.touches[0].clientY - touchState.startY;
+
+                    panX = touchState.startPanX + dx;
+                    panY = touchState.startPanY + dy;
+
+                    updateTransform();
+                }
+            }, { passive: false });
+
+            // Touch end
+            container.addEventListener('touchend', (e) => {
+                if (e.touches.length === 0) {
+                    // Double tap detection
+                    const now = Date.now();
+                    if (now - touchState.lastTapTime < 300) {
+                        fitToScreen();
+                        vibrate(10);
+                    }
+                    touchState.lastTapTime = now;
+
+                    touchState.isDragging = false;
+                    touchState.isPinching = false;
+                } else if (e.touches.length === 1) {
+                    touchState.isPinching = false;
+                    touchState.isDragging = true;
+                    touchState.startX = e.touches[0].clientX;
+                    touchState.startY = e.touches[0].clientY;
+                    touchState.startPanX = panX;
+                    touchState.startPanY = panY;
+                }
+            }, { passive: true });
+
+            // Mouse events for desktop
+            let mouseDown = false;
+            let mouseStartX, mouseStartY, mousePanStartX, mousePanStartY;
+
             container.addEventListener('mousedown', (e) => {
-                if (e.target === container || e.target.id === 'canvas-wrapper' || e.target.tagName === 'svg') {
-                    isDragging = true;
-                    dragStart = { x: e.clientX, y: e.clientY };
-                    panStart = { x: panX, y: panY };
+                if (e.target === container || e.target.closest('.canvas-wrapper')) {
+                    mouseDown = true;
+                    mouseStartX = e.clientX;
+                    mouseStartY = e.clientY;
+                    mousePanStartX = panX;
+                    mousePanStartY = panY;
                     container.style.cursor = 'grabbing';
                 }
             });
 
             window.addEventListener('mousemove', (e) => {
-                if (isDragging) {
-                    panX = panStart.x + (e.clientX - dragStart.x);
-                    panY = panStart.y + (e.clientY - dragStart.y);
+                if (mouseDown) {
+                    panX = mousePanStartX + (e.clientX - mouseStartX);
+                    panY = mousePanStartY + (e.clientY - mouseStartY);
                     updateTransform();
                 }
             });
 
             window.addEventListener('mouseup', () => {
-                isDragging = false;
+                mouseDown = false;
                 container.style.cursor = '';
             });
 
+            // Wheel zoom
             container.addEventListener('wheel', (e) => {
                 e.preventDefault();
-                const delta = e.deltaY > 0 ? 0.9 : 1.1;
-                const newScale = Math.max(0.3, Math.min(3, scale * delta));
 
-                // Zoom towards cursor
                 const rect = container.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
 
-                const scaleRatio = newScale / scale;
-                panX = mouseX - (mouseX - panX) * scaleRatio;
-                panY = mouseY - (mouseY - panY) * scaleRatio;
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                const newScale = Math.max(0.2, Math.min(3, scale * delta));
 
+                const ratio = newScale / scale;
+                panX = mouseX - (mouseX - panX) * ratio;
+                panY = mouseY - (mouseY - panY) * ratio;
                 scale = newScale;
+
                 updateTransform();
             }, { passive: false });
+
+            // Click to hide context menu
+            container.addEventListener('click', hideContextMenu);
         }
 
-        // ==================== Editor ====================
-        function toggleEditor() {
-            const panel = document.getElementById('editor-panel');
-            const btn = document.getElementById('toggle-text');
-            panel.classList.toggle('collapsed');
-            btn.textContent = panel.classList.contains('collapsed') ? 'Show Editor' : 'Hide Editor';
+        function getTouchDistance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
         }
 
-        function initResizer() {
-            const resizer = document.getElementById('resizer');
-            const panel = document.getElementById('editor-panel');
-            let isResizing = false;
-
-            resizer.addEventListener('mousedown', (e) => {
-                isResizing = true;
-                document.body.style.cursor = 'col-resize';
-            });
-
-            window.addEventListener('mousemove', (e) => {
-                if (isResizing) {
-                    const newWidth = e.clientX;
-                    if (newWidth >= 200 && newWidth <= 800) {
-                        panel.style.width = `${newWidth}px`;
-                    }
-                }
-            });
-
-            window.addEventListener('mouseup', () => {
-                isResizing = false;
-                document.body.style.cursor = '';
-            });
+        function getTouchCenter(touches) {
+            return {
+                x: (touches[0].clientX + touches[1].clientX) / 2,
+                y: (touches[0].clientY + touches[1].clientY) / 2
+            };
         }
 
         // ==================== Search ====================
         function initSearch() {
             const input = document.getElementById('search-input');
+            let debounceTimer;
 
             input.addEventListener('input', (e) => {
-                const query = e.target.value.toLowerCase();
-                highlightSearch(query);
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    highlightSearch(e.target.value.toLowerCase());
+                }, 150);
             });
 
             document.addEventListener('keydown', (e) => {
@@ -1223,20 +1699,39 @@ mindmap
         }
 
         function highlightSearch(query) {
+            let firstMatch = null;
+
             nodeElements.forEach((el, id) => {
                 el.classList.remove('highlighted');
-                if (query && el.querySelector('.node-label').textContent.toLowerCase().includes(query)) {
+                const node = allNodes.get(id);
+                if (query && node && node.label.toLowerCase().includes(query)) {
                     el.classList.add('highlighted');
+                    if (!firstMatch) firstMatch = node;
                 }
             });
+
+            if (firstMatch) {
+                focusNode(firstMatch);
+            }
+        }
+
+        function showSearch() {
+            const query = prompt('Search nodes:');
+            if (query) {
+                highlightSearch(query.toLowerCase());
+            }
         }
 
         // ==================== Context Menu ====================
         function showContextMenu(e, node) {
             contextNode = node;
             const menu = document.getElementById('context-menu');
-            menu.style.left = `${e.clientX}px`;
-            menu.style.top = `${e.clientY}px`;
+
+            const x = e.clientX || e.pageX;
+            const y = e.clientY || e.pageY;
+
+            menu.style.left = `${Math.min(x, window.innerWidth - 200)}px`;
+            menu.style.top = `${Math.min(y, window.innerHeight - 250)}px`;
             menu.classList.add('visible');
         }
 
@@ -1245,113 +1740,123 @@ mindmap
             contextNode = null;
         }
 
+        // ==================== Editor ====================
+        function showEditor() {
+            document.getElementById('editor-modal').classList.add('visible');
+        }
+
+        function hideEditor() {
+            document.getElementById('editor-modal').classList.remove('visible');
+        }
+
+        function handleModalOverlayClick(e) {
+            if (e.target.classList.contains('modal-overlay')) {
+                hideEditor();
+            }
+        }
+
+        function renderAndClose() {
+            renderMindmap();
+            hideEditor();
+            setTimeout(fitToScreen, 100);
+            showToast('Rendered!');
+        }
+
+        function loadSample() {
+            document.getElementById('mermaid-input').value = SAMPLE_DATA;
+            showToast('Sample loaded');
+        }
+
         // ==================== Minimap ====================
         function updateMinimap() {
             if (!treeData) return;
 
-            const minimapContent = document.getElementById('minimap-content');
+            const content = document.getElementById('minimap-content');
             const container = document.getElementById('canvas-container');
-            const containerRect = container.getBoundingClientRect();
+            const rect = container.getBoundingClientRect();
 
-            // Calculate bounds
             let minX = Infinity, maxX = -Infinity;
             let minY = Infinity, maxY = -Infinity;
 
-            nodePositions.forEach(({ x, y }) => {
-                minX = Math.min(minX, x);
-                maxX = Math.max(maxX, x + 200);
-                minY = Math.min(minY, y);
-                maxY = Math.max(maxY, y);
+            nodePositions.forEach(({ x, y, node }) => {
+                if (node._visible) {
+                    minX = Math.min(minX, x);
+                    maxX = Math.max(maxX, x + 150);
+                    minY = Math.min(minY, y);
+                    maxY = Math.max(maxY, y);
+                }
             });
 
-            const contentWidth = maxX - minX + 100;
-            const contentHeight = maxY - minY + 100;
-            const minimapScale = Math.min(200 / contentWidth, 150 / contentHeight) * 0.8;
+            const contentWidth = maxX - minX + 40;
+            const contentHeight = maxY - minY + 40;
+            const minimapWidth = content.offsetWidth || 140;
+            const minimapHeight = content.offsetHeight || 100;
+            const minimapScale = Math.min(minimapWidth / contentWidth, minimapHeight / contentHeight) * 0.9;
 
-            // Render minimap nodes
-            minimapContent.innerHTML = '';
+            content.innerHTML = '';
 
+            // Render dots
             nodePositions.forEach(({ x, y, node }) => {
                 if (!node._visible) return;
                 const dot = document.createElement('div');
-                dot.style.cssText = `
-                    position: absolute;
-                    width: 6px;
-                    height: 6px;
-                    background: ${node._depth === 0 ? '#68d391' : node.children.length === 0 ? '#48bb78' : '#4a5568'};
-                    border-radius: 50%;
-                    left: ${(x - minX) * minimapScale + 10}px;
-                    top: ${(y - minY) * minimapScale + 10}px;
-                `;
-                minimapContent.appendChild(dot);
+                dot.className = 'minimap-dot';
+                dot.style.background = node._depth === 0 ? '#68d391' :
+                                       node.children.length === 0 ? '#48bb78' : '#4a5568';
+                dot.style.left = `${(x - minX) * minimapScale + 8}px`;
+                dot.style.top = `${(y - minY) * minimapScale + 8}px`;
+                content.appendChild(dot);
             });
 
-            // Viewport indicator
-            const viewportDiv = document.createElement('div');
-            viewportDiv.className = 'minimap-viewport';
-            viewportDiv.style.cssText = `
-                left: ${(-panX / scale - minX) * minimapScale + 10}px;
-                top: ${(-panY / scale - minY) * minimapScale + 10}px;
-                width: ${(containerRect.width / scale) * minimapScale}px;
-                height: ${(containerRect.height / scale) * minimapScale}px;
-            `;
-            minimapContent.appendChild(viewportDiv);
+            // Viewport
+            const viewport = document.createElement('div');
+            viewport.className = 'minimap-viewport';
+            viewport.style.left = `${(-panX / scale - minX) * minimapScale + 8}px`;
+            viewport.style.top = `${(-panY / scale - minY) * minimapScale + 8}px`;
+            viewport.style.width = `${(rect.width / scale) * minimapScale}px`;
+            viewport.style.height = `${(rect.height / scale) * minimapScale}px`;
+            content.appendChild(viewport);
         }
 
         // ==================== Stats ====================
         function updateStats() {
             if (!treeData) return;
 
-            let total = 0;
-            let visible = 0;
-            let maxDepth = 0;
-
-            function count(node, depth) {
+            let total = 0, visible = 0;
+            function count(node) {
                 total++;
                 if (node._visible) visible++;
-                maxDepth = Math.max(maxDepth, depth);
-                for (const child of node.children) {
-                    count(child, depth + 1);
-                }
+                for (const child of node.children) count(child);
             }
-
-            count(treeData, 0);
+            count(treeData);
 
             document.getElementById('node-count').textContent = total;
             document.getElementById('visible-count').textContent = visible;
-            document.getElementById('depth-count').textContent = maxDepth;
         }
 
-        // ==================== Export ====================
-        async function exportImage() {
-            showToast('Preparing export...');
+        // ==================== Help ====================
+        function showHelp() {
+            document.getElementById('help-tooltip').classList.add('visible');
+        }
 
-            // Use html2canvas if available, otherwise show instructions
-            if (typeof html2canvas === 'undefined') {
-                showToast('For PNG export, include html2canvas library');
-                return;
-            }
+        function hideHelp() {
+            document.getElementById('help-tooltip').classList.remove('visible');
+        }
 
-            const mindmap = document.getElementById('mindmap');
-            const canvas = await html2canvas(mindmap, {
-                backgroundColor: '#1a1d23',
-                scale: 2
+        // ==================== Keyboard ====================
+        function initKeyboard() {
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+
+                switch(e.key) {
+                    case '+': case '=': zoomIn(); break;
+                    case '-': zoomOut(); break;
+                    case '0': fitToScreen(); break;
+                    case 'c': centerView(); break;
+                    case 'e': expandAll(); break;
+                    case 'w': collapseAll(); break;
+                    case 'Escape': hideContextMenu(); hideEditor(); hideHelp(); break;
+                }
             });
-
-            const link = document.createElement('a');
-            link.download = 'mindmap.png';
-            link.href = canvas.toDataURL();
-            link.click();
-
-            showToast('Image exported!');
-        }
-
-        // ==================== Toast ====================
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.classList.add('visible');
-            setTimeout(() => toast.classList.remove('visible'), 2000);
         }
 
         // ==================== Utilities ====================
@@ -1361,63 +1866,37 @@ mindmap
             return div.innerHTML;
         }
 
-        // ==================== Keyboard Shortcuts ====================
-        function initKeyboard() {
-            document.addEventListener('keydown', (e) => {
-                if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
-
-                switch(e.key) {
-                    case '+':
-                    case '=':
-                        zoomIn();
-                        break;
-                    case '-':
-                        zoomOut();
-                        break;
-                    case '0':
-                        resetZoom();
-                        break;
-                    case 'c':
-                        centerView();
-                        break;
-                    case 'e':
-                        expandAll();
-                        break;
-                    case 'w':
-                        collapseAll();
-                        break;
-                }
-            });
+        function vibrate(ms) {
+            if (navigator.vibrate) navigator.vibrate(ms);
         }
 
-        // ==================== Initialize ====================
-        document.addEventListener('DOMContentLoaded', () => {
-            initPanZoom();
-            initResizer();
-            initSearch();
-            initKeyboard();
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('visible');
+            setTimeout(() => toast.classList.remove('visible'), 2000);
+        }
 
-            // Close context menu on click
-            document.addEventListener('click', hideContextMenu);
-
-            // Auto-render on load
-            setTimeout(renderMindmap, 100);
-        });
-
-        // Expose functions globally
+        // ==================== Global Exports ====================
         window.renderMindmap = renderMindmap;
         window.expandAll = expandAll;
         window.collapseAll = collapseAll;
         window.centerView = centerView;
-        window.toggleEditor = toggleEditor;
+        window.fitToScreen = fitToScreen;
         window.zoomIn = zoomIn;
         window.zoomOut = zoomOut;
-        window.resetZoom = resetZoom;
-        window.exportImage = exportImage;
+        window.showEditor = showEditor;
+        window.hideEditor = hideEditor;
+        window.handleModalOverlayClick = handleModalOverlayClick;
+        window.renderAndClose = renderAndClose;
+        window.loadSample = loadSample;
+        window.showSearch = showSearch;
+        window.showHelp = showHelp;
+        window.hideHelp = hideHelp;
         window.expandNode = expandNode;
         window.collapseNode = collapseNode;
-        window.expandChildren = expandChildren;
-        window.collapseChildren = collapseChildren;
+        window.expandSubtree = expandSubtree;
+        window.collapseSubtree = collapseSubtree;
         window.focusNode = focusNode;
     </script>
 </body>
