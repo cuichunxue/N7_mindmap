@@ -676,20 +676,14 @@
 
         function scheduleLineRender() {
             if (lineRenderTimeout) cancelAnimationFrame(lineRenderTimeout);
-
-            const startTime = performance.now();
-            const duration = 350; // Match CSS transition duration
-
-            function animateLines(currentTime) {
+            // Render lines immediately - positions are stable from data attributes
+            lineRenderTimeout = requestAnimationFrame(() => {
                 renderLines();
-
-                if (currentTime - startTime < duration) {
-                    lineRenderTimeout = requestAnimationFrame(animateLines);
-                }
-            }
-
-            lineRenderTimeout = requestAnimationFrame(animateLines);
+            });
         }
+
+        // Track which nodes are ready for line drawing
+        const readyNodes = new Set();
 
         function renderNodes() {
             const container = document.getElementById('mindmap');
@@ -701,42 +695,30 @@
                 const shouldBeVisible = node._visible;
 
                 if (!shouldBeVisible) {
-                    // Hide node
+                    // Hide node and mark as not ready
                     if (el) {
                         el.classList.add('hidden');
                     }
+                    readyNodes.delete(node.id);
                     node.children.forEach(process);
                     return;
                 }
 
+                const isNew = !el;
+
                 // Create element if needed
-                if (!el) {
+                if (isNew) {
                     el = document.createElement('div');
-                    el.className = 'node';
+                    el.className = 'node hidden'; // Start hidden
                     el.dataset.id = node.id;
                     container.appendChild(el);
                     nodeElements.set(node.id, el);
-                    // Start hidden for animation
-                    el.classList.add('hidden');
-                    // Force reflow
-                    el.offsetHeight;
                 }
 
                 const color = COLORS[Math.min(node._depth, COLORS.length - 1)];
                 const hasKids = node.children.length > 0;
                 const isExpanded = expandedNodes.has(node.id);
                 const count = countDesc(node);
-
-                // Build class list
-                let cls = 'node';
-                if (node._depth === 0) cls += ' root';
-                if (!hasKids) cls += ' leaf';
-                if (hasKids && isExpanded) cls += ' expanded';
-                if (selectedNode === node) cls += ' selected';
-                el.className = cls;
-
-                // Position using transform (GPU accelerated)
-                el.style.transform = `translate(${node._x}px, ${node._y - 20}px)`;
 
                 // Update content only if needed
                 const contentKey = `${node.label}|${hasKids}|${count}|${color}`;
@@ -755,6 +737,24 @@
                     setupEvents(el, node);
                 }
 
+                // Store target position in data attributes
+                el.dataset.targetX = node._x;
+                el.dataset.targetY = node._y;
+
+                // Position using transform (GPU accelerated)
+                el.style.transform = `translate(${node._x}px, ${node._y - 20}px)`;
+
+                // Build class list (remove hidden)
+                let cls = 'node';
+                if (node._depth === 0) cls += ' root';
+                if (!hasKids) cls += ' leaf';
+                if (hasKids && isExpanded) cls += ' expanded';
+                if (selectedNode === node) cls += ' selected';
+                el.className = cls;
+
+                // Mark as ready for lines
+                readyNodes.add(node.id);
+
                 node.children.forEach(process);
             }
 
@@ -764,19 +764,13 @@
             nodeElements.forEach((el, id) => {
                 if (!processed.has(id)) {
                     el.classList.add('hidden');
+                    readyNodes.delete(id);
                     setTimeout(() => {
                         if (el.parentNode) el.remove();
                         nodeElements.delete(id);
                     }, 300);
                 }
             });
-        }
-
-        function getElementPosition(el) {
-            // Get current transform position (works during animation)
-            const style = window.getComputedStyle(el);
-            const matrix = new DOMMatrix(style.transform);
-            return { x: matrix.m41, y: matrix.m42 + 20 }; // +20 to center vertically
         }
 
         function renderLines() {
@@ -788,6 +782,9 @@
                 if (!node._visible) return;
                 if (node.children.length === 0) return;
 
+                // Skip if node is not ready
+                if (!readyNodes.has(node.id)) return;
+
                 // Skip drawing children lines if collapsed (except root)
                 const isExpanded = expandedNodes.has(node.id) || node._depth === 0;
                 if (!isExpanded) return;
@@ -795,32 +792,36 @@
                 // Get parent element
                 const parentEl = nodeElements.get(node.id);
                 if (!parentEl) return;
-                if (parentEl.classList.contains('hidden')) return;
 
                 const parentContent = parentEl.querySelector('.node-content');
                 if (!parentContent) return;
 
-                // Get current animated position of parent
-                const parentPos = getElementPosition(parentEl);
+                // Use target position from data attributes (stable, not animated)
+                const parentX = parseFloat(parentEl.dataset.targetX) || 0;
+                const parentY = parseFloat(parentEl.dataset.targetY) || 0;
 
                 // Process each child
                 for (const child of node.children) {
-                    // Child must be visible
+                    // Child must be visible and ready
                     if (!child._visible) continue;
+                    if (!readyNodes.has(child.id)) continue;
 
-                    // Child element must exist and not be hidden
+                    // Child element must exist
                     const childEl = nodeElements.get(child.id);
                     if (!childEl) continue;
-                    if (childEl.classList.contains('hidden')) continue;
 
-                    // Get current animated position of child
-                    const childPos = getElementPosition(childEl);
+                    // Use target position from data attributes
+                    const childX = parseFloat(childEl.dataset.targetX);
+                    const childY = parseFloat(childEl.dataset.targetY);
 
-                    // Calculate line coordinates using current positions
-                    const x1 = parentPos.x + parentContent.offsetWidth;
-                    const y1 = parentPos.y;
-                    const x2 = childPos.x;
-                    const y2 = childPos.y;
+                    // Skip if positions are invalid
+                    if (isNaN(childX) || isNaN(childY)) continue;
+
+                    // Calculate line coordinates
+                    const x1 = parentX + parentContent.offsetWidth;
+                    const y1 = parentY;
+                    const x2 = childX;
+                    const y2 = childY;
                     const ctrlX = (x1 + x2) / 2;
 
                     // Check for highlight
