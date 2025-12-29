@@ -705,9 +705,12 @@
             svg.innerHTML = '';
 
             function drawLine(p, c) {
+                // Only draw line if both nodes are visible and have elements
                 if (!p._visible || !c._visible) return;
                 const pEl = nodeElements.get(p.id);
-                if (!pEl) return;
+                const cEl = nodeElements.get(c.id);
+                if (!pEl || !cEl) return;
+
                 const x1 = p._x + pEl.querySelector('.node-content').offsetWidth;
                 const y1 = p._y, x2 = c._x, y2 = c._y;
                 const mx = (x1 + x2) / 2;
@@ -719,12 +722,23 @@
             }
 
             function traverse(node) {
-                if (!node._visible) return;
-                if (expandedNodes.has(node.id) || node._depth === 0) {
-                    node.children.forEach(c => { if (c._visible) { drawLine(node, c); traverse(c); } });
-                }
+                // Skip if node is not visible or has no children
+                if (!node._visible || node.children.length === 0) return;
+
+                // Only draw lines to children if this node is expanded
+                const isExpanded = expandedNodes.has(node.id);
+                if (!isExpanded && node._depth > 0) return;
+
+                // Draw lines only to visible children
+                node.children.forEach(c => {
+                    if (c._visible) {
+                        drawLine(node, c);
+                        traverse(c);
+                    }
+                });
             }
-            traverse(treeData);
+
+            if (treeData) traverse(treeData);
         }
 
         function isAncestor(node, potential) {
