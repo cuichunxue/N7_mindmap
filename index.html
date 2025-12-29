@@ -421,6 +421,7 @@
             <div class="header-actions">
                 <button class="btn btn-icon" onclick="undo()" id="btn-undo" title="Undo">↶</button>
                 <button class="btn btn-icon" onclick="redo()" id="btn-redo" title="Redo">↷</button>
+                <button class="btn btn-icon" onclick="showExportMenu(event)" id="btn-export" title="Export">⬇</button>
                 <button class="btn btn-icon theme-toggle" onclick="toggleTheme()" id="btn-theme" title="Toggle Theme">🌙</button>
                 <button class="btn btn-icon" onclick="showEditor()" title="Edit">✎</button>
             </div>
@@ -518,6 +519,21 @@
         <div class="context-menu-item" onclick="ctxFocus()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
             Focus
+        </div>
+    </div>
+
+    <div class="context-menu" id="export-menu">
+        <div class="context-menu-item" onclick="exportSVG()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 15l2 2 4-4"/></svg>
+            Download SVG
+        </div>
+        <div class="context-menu-item" onclick="exportPNG()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            Download PNG
+        </div>
+        <div class="context-menu-item" onclick="exportPNG(2)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            Download PNG (2x)
         </div>
     </div>
 
@@ -1174,6 +1190,228 @@
         }
         function ctxFocus() { focusNode(contextNode); hideCtx(); }
 
+        // Export
+        function showExportMenu(e) {
+            e.stopPropagation();
+            const m = document.getElementById('export-menu');
+            const btn = document.getElementById('btn-export');
+            const rect = btn.getBoundingClientRect();
+            m.style.left = Math.min(rect.left, window.innerWidth - 180) + 'px';
+            m.style.top = (rect.bottom + 5) + 'px';
+            m.classList.add('visible');
+            setTimeout(() => document.addEventListener('click', hideExportMenu, { once: true }), 10);
+        }
+
+        function hideExportMenu() {
+            document.getElementById('export-menu').classList.remove('visible');
+        }
+
+        function getExportBounds() {
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            visibleNodeIds.forEach(nodeId => {
+                const node = nodeMap.get(nodeId);
+                if (!node) return;
+                const el = nodeElements.get(nodeId);
+                const w = el ? el.querySelector('.node-content')?.offsetWidth || 150 : 150;
+                const h = 40;
+                minX = Math.min(minX, node._x);
+                maxX = Math.max(maxX, node._x + w);
+                minY = Math.min(minY, node._y - h/2);
+                maxY = Math.max(maxY, node._y + h/2);
+            });
+            const padding = 40;
+            return {
+                x: minX - padding,
+                y: minY - padding,
+                width: maxX - minX + padding * 2,
+                height: maxY - minY + padding * 2
+            };
+        }
+
+        function exportSVG() {
+            hideExportMenu();
+            if (!treeData) { toast('No data to export', 'error'); return; }
+
+            const bounds = getExportBounds();
+            const bgColor = isDarkTheme ? '#0f1419' : '#ffffff';
+            const lineColor = isDarkTheme ? '#3d5466' : '#cfd9de';
+            const textColor = isDarkTheme ? '#ffffff' : '#0f1419';
+            const cardBg = isDarkTheme ? '#1c2732' : '#ffffff';
+            const leafBg = isDarkTheme ? '#22303c' : '#eff3f4';
+            const borderColor = isDarkTheme ? '#3d5466' : '#cfd9de';
+
+            let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}" width="${bounds.width}" height="${bounds.height}">
+<style>
+    .line { fill: none; stroke: ${lineColor}; stroke-width: 2; stroke-linecap: round; }
+    .node-bg { rx: 8; fill: ${cardBg}; stroke: ${borderColor}; stroke-width: 2; }
+    .node-bg.root { fill: #1d9bf0; stroke: #1d9bf0; rx: 10; }
+    .node-bg.leaf { fill: ${leafBg}; stroke: none; }
+    .node-text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 500; fill: ${textColor}; }
+    .node-text.root { fill: #ffffff; font-size: 15px; font-weight: 600; }
+    .depth-bar { rx: 2; }
+</style>
+<rect x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" fill="${bgColor}"/>
+`;
+            // Draw lines
+            visibleNodeIds.forEach(nodeId => {
+                const node = nodeMap.get(nodeId);
+                if (!node || !node.parent) return;
+                if (!visibleNodeIds.has(node.parent.id)) return;
+                const parent = node.parent;
+                const x1 = parent._x + 120;
+                const y1 = parent._y;
+                const x2 = node._x;
+                const y2 = node._y;
+                const dx = Math.abs(x2 - x1) * 0.5;
+                svgContent += `<path class="line" d="M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}"/>
+`;
+            });
+
+            // Draw nodes
+            visibleNodeIds.forEach(nodeId => {
+                const node = nodeMap.get(nodeId);
+                if (!node) return;
+                const el = nodeElements.get(nodeId);
+                const w = el ? el.querySelector('.node-content')?.offsetWidth || 150 : 150;
+                const h = node._depth === 0 ? 44 : 38;
+                const x = node._x;
+                const y = node._y - h/2;
+                const isRoot = node._depth === 0;
+                const isLeaf = node.children.length === 0;
+                const color = COLORS[Math.min(node._depth, COLORS.length - 1)];
+
+                let nodeClass = 'node-bg';
+                if (isRoot) nodeClass += ' root';
+                else if (isLeaf) nodeClass += ' leaf';
+
+                svgContent += `<rect class="${nodeClass}" x="${x}" y="${y}" width="${w}" height="${h}"/>
+`;
+                if (!isRoot && !isLeaf) {
+                    svgContent += `<rect class="depth-bar" x="${x - 3}" y="${y + h*0.2}" width="3" height="${h*0.6}" fill="${color}"/>
+`;
+                }
+
+                const textClass = isRoot ? 'node-text root' : 'node-text';
+                svgContent += `<text class="${textClass}" x="${x + 12}" y="${y + h/2 + 5}">${esc(node.label)}</text>
+`;
+            });
+
+            svgContent += `</svg>`;
+
+            const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'mindmap.svg';
+            a.click();
+            URL.revokeObjectURL(url);
+            toast('SVG downloaded', 'success');
+        }
+
+        function exportPNG(scale = 1) {
+            hideExportMenu();
+            if (!treeData) { toast('No data to export', 'error'); return; }
+
+            const bounds = getExportBounds();
+            const bgColor = isDarkTheme ? '#0f1419' : '#ffffff';
+            const lineColor = isDarkTheme ? '#3d5466' : '#cfd9de';
+            const textColor = isDarkTheme ? '#ffffff' : '#0f1419';
+            const cardBg = isDarkTheme ? '#1c2732' : '#ffffff';
+            const leafBg = isDarkTheme ? '#22303c' : '#eff3f4';
+            const borderColor = isDarkTheme ? '#3d5466' : '#cfd9de';
+
+            const canvas = document.createElement('canvas');
+            canvas.width = bounds.width * scale;
+            canvas.height = bounds.height * scale;
+            const ctx = canvas.getContext('2d');
+
+            ctx.scale(scale, scale);
+            ctx.translate(-bounds.x, -bounds.y);
+
+            // Background
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+
+            // Draw lines
+            ctx.strokeStyle = lineColor;
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            visibleNodeIds.forEach(nodeId => {
+                const node = nodeMap.get(nodeId);
+                if (!node || !node.parent) return;
+                if (!visibleNodeIds.has(node.parent.id)) return;
+                const parent = node.parent;
+                const x1 = parent._x + 120;
+                const y1 = parent._y;
+                const x2 = node._x;
+                const y2 = node._y;
+                const dx = Math.abs(x2 - x1) * 0.5;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.bezierCurveTo(x1 + dx, y1, x2 - dx, y2, x2, y2);
+                ctx.stroke();
+            });
+
+            // Draw nodes
+            visibleNodeIds.forEach(nodeId => {
+                const node = nodeMap.get(nodeId);
+                if (!node) return;
+                const el = nodeElements.get(nodeId);
+                const w = el ? el.querySelector('.node-content')?.offsetWidth || 150 : 150;
+                const h = node._depth === 0 ? 44 : 38;
+                const x = node._x;
+                const y = node._y - h/2;
+                const isRoot = node._depth === 0;
+                const isLeaf = node.children.length === 0;
+                const color = COLORS[Math.min(node._depth, COLORS.length - 1)];
+                const r = isRoot ? 10 : 8;
+
+                // Shadow
+                ctx.shadowColor = 'rgba(0,0,0,0.2)';
+                ctx.shadowBlur = 8;
+                ctx.shadowOffsetY = 2;
+
+                // Background
+                ctx.fillStyle = isRoot ? '#1d9bf0' : (isLeaf ? leafBg : cardBg);
+                ctx.beginPath();
+                ctx.roundRect(x, y, w, h, r);
+                ctx.fill();
+
+                // Border
+                ctx.shadowColor = 'transparent';
+                if (!isRoot && !isLeaf) {
+                    ctx.strokeStyle = borderColor;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                // Depth indicator
+                if (!isRoot) {
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.roundRect(x - 3, y + h*0.2, 3, h*0.6, 2);
+                    ctx.fill();
+                }
+
+                // Text
+                ctx.fillStyle = isRoot ? '#ffffff' : textColor;
+                ctx.font = isRoot ? '600 15px -apple-system, BlinkMacSystemFont, sans-serif' : '500 13px -apple-system, BlinkMacSystemFont, sans-serif';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(node.label, x + 12, y + h/2);
+            });
+
+            canvas.toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = scale > 1 ? `mindmap@${scale}x.png` : 'mindmap.png';
+                a.click();
+                URL.revokeObjectURL(url);
+                toast(`PNG downloaded${scale > 1 ? ` (${scale}x)` : ''}`, 'success');
+            }, 'image/png');
+        }
+
         // Editor
         function showEditor() { document.getElementById('editor-modal').classList.add('visible'); }
         function hideEditor() { document.getElementById('editor-modal').classList.remove('visible'); }
@@ -1249,6 +1487,9 @@
         window.ctxExpandAll = ctxExpandAll;
         window.ctxCollapseAll = ctxCollapseAll;
         window.ctxFocus = ctxFocus;
+        window.showExportMenu = showExportMenu;
+        window.exportSVG = exportSVG;
+        window.exportPNG = exportPNG;
     })();
     </script>
 </body>
