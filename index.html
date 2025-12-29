@@ -1301,12 +1301,37 @@
 
             const blob = new Blob([svgContent], { type: 'image/svg+xml' });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'mindmap.svg';
-            a.click();
-            URL.revokeObjectURL(url);
-            toast('SVG downloaded', 'success');
+
+            // iOS Safari needs different handling
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            if (isIOS) {
+                // Open in new tab for iOS - user can long press to save
+                const win = window.open();
+                if (win) {
+                    win.document.write(`
+                        <html><head><title>mindmap.svg</title>
+                        <meta name="viewport" content="width=device-width, initial-scale=1">
+                        <style>body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#222;}
+                        img{max-width:100%;height:auto;}
+                        p{position:fixed;top:10px;left:0;right:0;text-align:center;color:#fff;font-family:sans-serif;font-size:14px;}</style>
+                        </head><body>
+                        <p>画像を長押しして保存</p>
+                        <img src="${url}">
+                        </body></html>
+                    `);
+                    win.document.close();
+                }
+                toast('新しいタブで開きました - 長押しで保存', 'success');
+            } else {
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'mindmap.svg';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                toast('SVG downloaded', 'success');
+            }
         }
 
         function exportPNG(scale = 1) {
@@ -1401,15 +1426,40 @@
                 ctx.fillText(node.label, x + 12, y + h/2);
             });
 
-            canvas.toBlob(blob => {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = scale > 1 ? `mindmap@${scale}x.png` : 'mindmap.png';
-                a.click();
-                URL.revokeObjectURL(url);
-                toast(`PNG downloaded${scale > 1 ? ` (${scale}x)` : ''}`, 'success');
-            }, 'image/png');
+            // iOS Safari needs different handling
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            if (isIOS) {
+                // Convert to data URL and open in new tab for iOS
+                const dataUrl = canvas.toDataURL('image/png');
+                const win = window.open();
+                if (win) {
+                    win.document.write(`
+                        <html><head><title>mindmap.png</title>
+                        <meta name="viewport" content="width=device-width, initial-scale=1">
+                        <style>body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#222;}
+                        img{max-width:100%;height:auto;}
+                        p{position:fixed;top:10px;left:0;right:0;text-align:center;color:#fff;font-family:sans-serif;font-size:14px;}</style>
+                        </head><body>
+                        <p>画像を長押しして保存</p>
+                        <img src="${dataUrl}">
+                        </body></html>
+                    `);
+                    win.document.close();
+                }
+                toast('新しいタブで開きました - 長押しで保存', 'success');
+            } else {
+                canvas.toBlob(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = scale > 1 ? `mindmap@${scale}x.png` : 'mindmap.png';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    toast(`PNG downloaded${scale > 1 ? ` (${scale}x)` : ''}`, 'success');
+                }, 'image/png');
+            }
         }
 
         // Editor
