@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>MindFlow Pro — index2</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg-primary:#020617;
+      --accent:#38bdf8;
+      --accent-glow:rgba(56,189,248,.3);
+      --node-bg:rgba(30,41,59,.72);
+      --node-border:rgba(255,255,255,.10);
+      --text:#f8fafc;
+      --shadow:0 10px 25px -5px rgba(0,0,0,.35);
+    }
+    html,body{height:100%;}
+    body{
+      font-family:'Inter',sans-serif;
+      background:var(--bg-primary);
+      color:var(--text);
+      margin:0;
+      overflow:hidden;
+      -webkit-text-size-adjust:100%;
+    }
+
+    .canvas-container{
+      position:absolute; inset:0; overflow:hidden;
+      background-image:radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0);
+      background-size:40px 40px;
+      touch-action:none;
+      user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+      cursor:grab;
+    }
+    .canvas-container.dragging{ cursor:grabbing; }
+
+    #canvas-content{
+      position:absolute;
+      transform-origin:0 0;
+      will-change:transform;
+      transition:transform .08s ease-out;
+    }
+
+    .node{
+      position:absolute;
+      min-width:120px; max-width:320px;
+      padding:12px 18px;
+      background:var(--node-bg);
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
+      border:1px solid var(--node-border);
+      border-radius:16px;
+      box-shadow:var(--shadow);
+      z-index:10;
+      user-select:none; -webkit-user-select:none;
+      touch-action:none;
+      transform:translate(-50%,-50%);
+      transition:box-shadow .2s, border-color .2s, background .2s;
+    }
+    .node .title{ font-weight:600; line-height:1.25; text-align:center; }
+    .node .badge{
+      font-size:10px; padding:2px 6px; border-radius:999px;
+      background:rgba(255,255,255,.10);
+      margin-top:6px; display:inline-block;
+    }
+    .node.active{
+      border-color:var(--accent);
+      box-shadow:0 0 0 1px rgba(56,189,248,.35), 0 0 28px var(--accent-glow);
+      background:rgba(56,189,248,.14);
+    }
+    .node.root{
+      background:linear-gradient(135deg,#0ea5e9 0%, #2563eb 100%);
+      border:none;
+      padding:16px 28px;
+    }
+    .node.root .title{ font-weight:800; font-size:1.05rem; }
+    .node-input{
+      width:100%;
+      background:transparent; border:none; outline:none;
+      color:white; font:inherit; text-align:center;
+    }
+
+    .node[data-color="sky"]{ box-shadow:var(--shadow), 0 0 0 1px rgba(56,189,248,.15) inset; }
+    .node[data-color="violet"]{ box-shadow:var(--shadow), 0 0 0 1px rgba(167,139,250,.18) inset; }
+    .node[data-color="emerald"]{ box-shadow:var(--shadow), 0 0 0 1px rgba(52,211,153,.18) inset; }
+    .node[data-color="amber"]{ box-shadow:var(--shadow), 0 0 0 1px rgba(251,191,36,.18) inset; }
+    .node[data-color="rose"]{ box-shadow:var(--shadow), 0 0 0 1px rgba(251,113,133,.18) inset; }
+
+    .node .toggle{
+      position:absolute; top:8px; right:8px;
+      width:26px; height:26px;
+      border-radius:10px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:12px; color:#e2e8f0;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.10);
+    }
+    .node .toggle:active{ transform:scale(.96); }
+    .node.collapsed .toggle{
+      background:rgba(56,189,248,.14);
+      border-color:rgba(56,189,248,.22);
+    }
+
+    .node .count-badge{
+      position:absolute;
+      top:8px;
+      right:42px;
+      min-width:22px;
+      height:22px;
+      padding:0 6px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:600;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#e0f2fe;
+      background:rgba(56,189,248,.18);
+      border:1px solid rgba(56,189,248,.28);
+      box-shadow:0 0 12px rgba(56,189,248,.18);
+    }
+
+    .connector-path{
+      fill:none;
+      stroke:rgba(255,255,255,.16);
+      stroke-width:2;
+      stroke-linecap:round;
+    }
+    .connector-path.active{
+      stroke:var(--accent);
+      stroke-width:3;
+      filter:drop-shadow(0 0 5px var(--accent));
+    }
+
+    .overlay{ position:fixed; z-index:100; pointer-events:none; }
+    .overlay > *{ pointer-events:auto; }
+
+    .toolbar{
+      bottom:18px; left:50%; transform:translateX(-50%);
+      display:flex; gap:10px; padding:8px;
+      background:rgba(15,23,42,.85);
+      backdrop-filter:blur(20px);
+      -webkit-backdrop-filter:blur(20px);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:18px;
+    }
+    .tool-btn{
+      width:46px; height:46px;
+      display:flex; align-items:center; justify-content:center;
+      border-radius:14px;
+      color:#94a3b8;
+      transition:.15s;
+    }
+    .tool-btn:hover{ background:rgba(255,255,255,.10); color:white; }
+    .tool-btn:active{ transform:scale(.96); }
+
+    .status-pill{
+      display:inline-flex; align-items:center; gap:8px;
+      font-size:12px;
+      background:rgba(255,255,255,.07);
+      border:1px solid rgba(255,255,255,.10);
+      padding:6px 10px; border-radius:999px;
+      color:#cbd5e1;
+    }
+    .dot{
+      width:8px; height:8px; border-radius:50%;
+      background:rgba(56,189,248,.9);
+      box-shadow:0 0 12px rgba(56,189,248,.45);
+    }
+
+    .minimap{
+      right:14px; bottom:90px;
+      width:170px; height:110px;
+      background:rgba(15,23,42,.55);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:12px;
+      overflow:hidden;
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+    }
+    #minimapCanvas{ width:100%; height:100%; display:block; }
+
+    .ctx{
+      position:fixed;
+      z-index:1000;
+      min-width:220px;
+      background:rgba(15,23,42,.92);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:14px;
+      box-shadow:0 20px 50px rgba(0,0,0,.35);
+      padding:8px;
+      display:none;
+      backdrop-filter:blur(18px);
+      -webkit-backdrop-filter:blur(18px);
+    }
+    .ctx .row{ display:flex; gap:8px; padding:6px; border-radius:12px; }
+    .ctx .btn{
+      flex:1;
+      display:flex; align-items:center; justify-content:center;
+      height:38px;
+      font-size:12px; font-weight:600;
+      border-radius:12px;
+      color:#e2e8f0;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .ctx .btn:active{ transform:scale(.98); }
+    .ctx .btn.danger{ color:#fecaca; background:rgba(239,68,68,.12); border-color:rgba(239,68,68,.25); }
+    .ctx .btn.primary{ color:#e0f2fe; background:rgba(56,189,248,.12); border-color:rgba(56,189,248,.25); }
+    .ctx .label{ font-size:11px; color:#94a3b8; padding:6px 8px 2px; }
+    .ctx .colors{ display:flex; gap:8px; padding:6px 8px 8px; }
+    .swatch{ width:22px; height:22px; border-radius:999px; border:1px solid rgba(255,255,255,.14); }
+    .swatch:active{ transform:scale(.95); }
+    .sw-sky{ background:#38bdf8; }
+    .sw-violet{ background:#a78bfa; }
+    .sw-emerald{ background:#34d399; }
+    .sw-amber{ background:#fbbf24; }
+    .sw-rose{ background:#fb7185; }
+
+    .toast{
+      left:50%; top:18px; transform:translateX(-50%);
+      background:rgba(15,23,42,.88);
+      border:1px solid rgba(255,255,255,.10);
+      padding:10px 12px;
+      border-radius:14px;
+      color:#e2e8f0;
+      font-size:12px;
+      display:none;
+      gap:8px;
+      align-items:center;
+      backdrop-filter:blur(18px);
+      -webkit-backdrop-filter:blur(18px);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="canvas-container" id="container">
+    <div id="canvas-content">
+      <svg id="svg-layer" style="position:absolute; top:0; left:0; width:10000px; height:10000px; pointer-events:none;"></svg>
+      <div id="nodes-layer"></div>
+    </div>
+  </div>
+
+  <div class="overlay top-4 left-4 flex flex-col gap-2">
+    <div class="flex items-center gap-2">
+      <div class="w-9 h-9 rounded-xl bg-sky-500 flex items-center justify-center font-black text-sm">M</div>
+      <div>
+        <div class="text-xl font-black tracking-tight text-white">MindFlow Pro</div>
+        <div class="text-[11px] text-slate-400">タップ選択 / ドラッグ移動 / 長押しメニュー / 2本指ピンチ / 折りたたみノードはダブルタップで全展開</div>
+      </div>
+    </div>
+    <div class="status-pill">
+      <span class="dot"></span>
+      <span id="statusText">Saved</span>
+      <span class="text-slate-500">·</span>
+      <span class="text-slate-300" id="nodeCount">0 nodes</span>
+    </div>
+  </div>
+
+  <div class="overlay minimap">
+    <canvas id="minimapCanvas" width="340" height="220"></canvas>
+  </div>
+
+  <div class="overlay toast" id="toast"><span class="dot"></span><span id="toastText">Done</span></div>
+
+  <div class="overlay toolbar">
+    <button class="tool-btn" onclick="undo()" title="Undo" type="button">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14l-4-4 4-4"/><path d="M20 20a8 8 0 0 0-11.3-11.3L5 10"/></svg>
+    </button>
+    <button class="tool-btn" onclick="redo()" title="Redo" type="button">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 14l4-4-4-4"/><path d="M4 20a8 8 0 0 1 11.3-11.3L19 10"/></svg>
+    </button>
+    <div class="w-px h-6 bg-slate-700 my-auto mx-1"></div>
+    <button class="tool-btn" onclick="zoomIn()" title="Zoom In" type="button">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <button class="tool-btn" onclick="zoomOut()" title="Zoom Out" type="button">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>
+    </button>
+    <button class="tool-btn" onclick="resetView()" title="Reset View" type="button">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+    <div class="w-px h-6 bg-slate-700 my-auto mx-1"></div>
+    <button class="tool-btn" onclick="exportData()" title="Export JSON" type="button">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+    </button>
+    <button class="tool-btn" onclick="clearAll()" title="New / Clear" type="button">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 16h10l1-16"/></svg>
+    </button>
+  </div>
+
+  <div class="ctx" id="ctxMenu" role="menu" aria-hidden="true">
+    <div class="label" id="ctxLabel">Node</div>
+
+    <div class="row">
+      <button class="btn primary" id="ctxAdd">子追加</button>
+      <button class="btn" id="ctxEdit">編集</button>
+    </div>
+    <div class="row">
+      <button class="btn" id="ctxToggle">折りたたみ</button>
+      <button class="btn" id="ctxCenter">中央へ</button>
+    </div>
+    <div class="row">
+      <button class="btn danger" id="ctxDelete">削除</button>
+    </div>
+
+    <div class="label">Color</div>
+    <div class="colors">
+      <button class="swatch sw-sky" data-c="sky" type="button"></button>
+      <button class="swatch sw-violet" data-c="violet" type="button"></button>
+      <button class="swatch sw-emerald" data-c="emerald" type="button"></button>
+      <button class="swatch sw-amber" data-c="amber" type="button"></button>
+      <button class="swatch sw-rose" data-c="rose" type="button"></button>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "mindflow_pro_v2_index2";
+
+    const state = {
+      nodes: [
+        { id: "root", text: "アイデアの種", x: 2000, y: 2000, parentId: null, isRoot: true, color: "sky", collapsed: false }
+      ],
+      selectedId: "root",
+      scale: 1,
+      panX: window.innerWidth / 2 - 2000,
+      panY: window.innerHeight / 2 - 2000
+    };
+
+    const config = {
+      levelSpacing: 280,
+      minScale: 0.1,
+      maxScale: 3,
+      zoomSpeedWheel: 0.12,
+      dragThresholdPx: 6,
+      longPressMs: 520,
+      doubleTapMs: 320,
+      snapToLevels: true,
+      avoidOverlap: true,
+      overlapIterations: 12,
+      overlapPadding: 26
+    };
+
+    const container = document.getElementById("container");
+    const canvas = document.getElementById("canvas-content");
+    const svgLayer = document.getElementById("svg-layer");
+    const nodesLayer = document.getElementById("nodes-layer");
+    const statusText = document.getElementById("statusText");
+    const nodeCount = document.getElementById("nodeCount");
+    const minimapCanvas = document.getElementById("minimapCanvas");
+    const mm = minimapCanvas.getContext("2d");
+    const toast = document.getElementById("toast");
+    const toastText = document.getElementById("toastText");
+
+    const ctxMenu = document.getElementById("ctxMenu");
+    const ctxLabel = document.getElementById("ctxLabel");
+    const ctxAdd = document.getElementById("ctxAdd");
+    const ctxEdit = document.getElementById("ctxEdit");
+    const ctxDelete = document.getElementById("ctxDelete");
+    const ctxCenter = document.getElementById("ctxCenter");
+    const ctxToggle = document.getElementById("ctxToggle");
+
+    const history = { past: [], future: [], max: 60 };
+
+    const pointers = new Map();
+    let isCanvasPanning = false;
+    let lastPanPoint = null;
+
+    let isPinching = false;
+    let pinchStartDist = 0;
+    let pinchStartScale = 1;
+    let pinchAnchorScreen = { x: 0, y: 0 };
+    let pinchAnchorWorld = { x: 0, y: 0 };
+
+    let nodeDrag = {
+      active:false, pointerId:null, nodeId:null,
+      startScreen:{x:0,y:0},
+      startNode:{x:0,y:0},
+      moved:false
+    };
+
+    let lastTap = { time: 0, nodeId: null };
+    let longPressTimer = null;
+
+    let saveTimer = null;
+
+    function snapshot() {
+      return {
+        nodes: state.nodes.map(n => ({...n})),
+        selectedId: state.selectedId,
+        scale: state.scale,
+        panX: state.panX,
+        panY: state.panY
+      };
+    }
+
+    function restore(snap) {
+      state.nodes = snap.nodes.map(n => ({...n}));
+      state.selectedId = snap.selectedId;
+      state.scale = snap.scale;
+      state.panX = snap.panX;
+      state.panY = snap.panY;
+      update(true);
+      markSaved();
+    }
+
+    function pushHistory() {
+      history.past.push(snapshot());
+      if (history.past.length > history.max) history.past.shift();
+      history.future.length = 0;
+      markDirty();
+    }
+
+    function undo() {
+      if (!history.past.length) { ping("No undo"); return; }
+      history.future.push(snapshot());
+      restore(history.past.pop());
+      ping("Undo");
+    }
+
+    function redo() {
+      if (!history.future.length) { ping("No redo"); return; }
+      history.past.push(snapshot());
+      restore(history.future.pop());
+      ping("Redo");
+    }
+
+    function addNode(parentId, text="新しいノード", push=true) {
+      const parent = state.nodes.find(n => n.id === parentId);
+      if (!parent) return null;
+      if (push) pushHistory();
+
+      if (parent.collapsed) parent.collapsed = false;
+
+      const id = "n-" + Math.random().toString(36).slice(2, 11);
+      const node = {
+        id, text, parentId,
+        x: parent.x + config.levelSpacing,
+        y: parent.y + (Math.random() - 0.5) * 240,
+        color: parent.color || "sky",
+        collapsed: false
+      };
+      state.nodes.push(node);
+      state.selectedId = id;
+
+      if (config.snapToLevels) snapNodeToLevel(node);
+      if (config.avoidOverlap) relaxOverlaps();
+
+      update(true);
+      scheduleSave();
+      return id;
+    }
+
+    function deleteNode(nodeId, push=true) {
+      const node = state.nodes.find(n => n.id === nodeId);
+      if (!node || node.isRoot) return;
+      if (push) pushHistory();
+
+      const toDelete = new Set([nodeId]);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const n of state.nodes) {
+          if (n.parentId && toDelete.has(n.parentId) && !toDelete.has(n.id)) {
+            toDelete.add(n.id);
+            changed = true;
+          }
+        }
+      }
+      state.nodes = state.nodes.filter(n => !toDelete.has(n.id));
+      state.selectedId = "root";
+
+      update(true);
+      scheduleSave();
+      ping("Deleted");
+    }
+
+    function editNode(node, el, push=true) {
+      if (push) pushHistory();
+      closeCtx();
+
+      const title = el.querySelector(".title");
+      const originalText = node.text;
+
+      title.innerHTML = `<input class="node-input" type="text" value="${escapeAttr(originalText)}" />`;
+      const input = title.querySelector("input");
+      input.focus(); input.select();
+
+      const save = () => {
+        node.text = input.value || originalText;
+        update(true);
+        scheduleSave();
+        markDirty();
+      };
+
+      input.addEventListener("blur", save);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") save();
+        if (e.key === "Escape") { input.value = originalText; save(); }
+      });
+    }
+
+    function setNodeColor(nodeId, color, push=true) {
+      const node = state.nodes.find(n => n.id === nodeId);
+      if (!node) return;
+      if (push) pushHistory();
+      node.color = color;
+      update(false);
+      scheduleSave();
+    }
+
+    function toggleCollapse(nodeId, push=true) {
+      const node = state.nodes.find(n => n.id === nodeId);
+      if (!node) return;
+      if (push) pushHistory();
+      node.collapsed = !node.collapsed;
+      update(true);
+      scheduleSave();
+      ping(node.collapsed ? "Collapsed" : "Expanded");
+    }
+
+    function expandAllFrom(nodeId, push=true){
+      const root = state.nodes.find(n => n.id === nodeId);
+      if (!root) return;
+      if (push) pushHistory();
+
+      const expandSet = new Set([nodeId]);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const n of state.nodes) {
+          if (n.parentId && expandSet.has(n.parentId) && !expandSet.has(n.id)) {
+            expandSet.add(n.id);
+            changed = true;
+          }
+        }
+      }
+      for (const id of expandSet) {
+        const n = state.nodes.find(x => x.id === id);
+        if (n) n.collapsed = false;
+      }
+
+      update(true);
+      scheduleSave();
+      ping("Expanded all");
+    }
+
+    function countDescendants(nodeId){
+      let count = 0;
+      let changed = true;
+      const visited = new Set();
+      while (changed) {
+        changed = false;
+        for (const n of state.nodes) {
+          if (!visited.has(n.id) && n.parentId && (n.parentId === nodeId || visited.has(n.parentId))) {
+            visited.add(n.id);
+            count++;
+            changed = true;
+          }
+        }
+      }
+      return count;
+    }
+
+    function getVisibleNodeIds() {
+      const byId = new Map(state.nodes.map(n => [n.id, n]));
+      const visible = new Set();
+      function dfs(id) {
+        const node = byId.get(id);
+        if (!node) return;
+        visible.add(id);
+        if (node.collapsed) return;
+        for (const child of state.nodes) {
+          if (child.parentId === id) dfs(child.id);
+        }
+      }
+      dfs("root");
+      return visible;
+    }
+
+    function update(full=false) {
+      if (full) renderNodes();
+      renderLines();
+      applyTransform();
+      updateStatus();
+      renderMinimap();
+    }
+
+    function renderNodes() {
+      nodesLayer.innerHTML = "";
+      const visible = getVisibleNodeIds();
+
+      state.nodes.forEach(node => {
+        if (!visible.has(node.id)) return;
+
+        const el = document.createElement("div");
+        el.className = `node ${node.isRoot ? "root" : ""} ${state.selectedId === node.id ? "active" : ""} ${node.collapsed ? "collapsed" : ""}`;
+        el.dataset.id = node.id;
+        el.dataset.color = node.color || "sky";
+        el.style.left = node.x + "px";
+        el.style.top  = node.y + "px";
+
+        const hasChild = state.nodes.some(n => n.parentId === node.id);
+        const descendantCount = node.collapsed ? countDescendants(node.id) : 0;
+
+        el.innerHTML = `
+          <div class="title">${escapeHtml(node.text)}</div>
+          ${node.isRoot ? "" : `<div class="badge">Topic</div>`}
+          ${node.collapsed && descendantCount > 0 ? `<div class="count-badge">+${descendantCount}</div>` : ""}
+          ${hasChild ? `<button class="toggle" type="button" aria-label="toggle">${node.collapsed ? "▸" : "▾"}</button>` : ""}
+        `;
+
+        const toggleBtn = el.querySelector(".toggle");
+        if (toggleBtn) {
+          toggleBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
+          toggleBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            toggleCollapse(node.id, true);
+          });
+        }
+
+        el.addEventListener("pointerdown", (e) => {
+          e.stopPropagation();
+          if (document.activeElement && document.activeElement.tagName === "INPUT") return;
+
+          pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          el.setPointerCapture(e.pointerId);
+
+          state.selectedId = node.id;
+          update(true);
+
+          clearTimeout(longPressTimer);
+          longPressTimer = setTimeout(() => {
+            if (nodeDrag.active && nodeDrag.moved) return;
+            openCtx(node.id, e.clientX, e.clientY);
+          }, config.longPressMs);
+
+          nodeDrag.active = true;
+          nodeDrag.pointerId = e.pointerId;
+          nodeDrag.nodeId = node.id;
+          nodeDrag.startScreen = { x: e.clientX, y: e.clientY };
+          nodeDrag.startNode = { x: node.x, y: node.y };
+          nodeDrag.moved = false;
+
+          closeCtx();
+        });
+
+        el.addEventListener("pointermove", (e) => {
+          if (!nodeDrag.active || nodeDrag.pointerId !== e.pointerId) return;
+          if (isPinching) return;
+
+          const node = state.nodes.find(n => n.id === nodeDrag.nodeId);
+          if (!node) return;
+
+          const dxS = e.clientX - nodeDrag.startScreen.x;
+          const dyS = e.clientY - nodeDrag.startScreen.y;
+
+          if (!nodeDrag.moved && Math.hypot(dxS, dyS) >= config.dragThresholdPx) {
+            nodeDrag.moved = true;
+            clearTimeout(longPressTimer);
+            pushHistory();
+          }
+          if (!nodeDrag.moved) return;
+
+          const dxW = dxS / state.scale;
+          const dyW = dyS / state.scale;
+
+          node.x = nodeDrag.startNode.x + dxW;
+          node.y = nodeDrag.startNode.y + dyW;
+
+          renderNodes();
+          renderLines();
+          renderMinimap();
+          markDirty();
+        });
+
+        el.addEventListener("pointerup", (e) => {
+          pointers.delete(e.pointerId);
+          clearTimeout(longPressTimer);
+
+          if (nodeDrag.active && nodeDrag.pointerId === e.pointerId) {
+            const moved = nodeDrag.moved;
+            const nodeId = nodeDrag.nodeId;
+            nodeDrag.active = false;
+
+            if (!moved) {
+              const now = Date.now();
+              const isDoubleTap = (lastTap.nodeId === nodeId) && (now - lastTap.time < config.doubleTapMs);
+              lastTap = { time: now, nodeId };
+
+              if (isDoubleTap) {
+                const node = state.nodes.find(n => n.id === nodeId);
+                if (node && node.collapsed) {
+                  expandAllFrom(nodeId, true);
+                } else {
+                  const latest = document.querySelector(`.node[data-id="${nodeId}"]`);
+                  if (node && latest) editNode(node, latest, true);
+                }
+              }
+            } else {
+              const node = state.nodes.find(n => n.id === nodeId);
+              if (node && config.snapToLevels) snapNodeToLevel(node);
+              if (config.avoidOverlap) relaxOverlaps();
+              update(true);
+              scheduleSave();
+              markDirty();
+            }
+          }
+        });
+
+        el.addEventListener("pointercancel", (e) => {
+          pointers.delete(e.pointerId);
+          clearTimeout(longPressTimer);
+          if (nodeDrag.pointerId === e.pointerId) nodeDrag.active = false;
+        });
+
+        nodesLayer.appendChild(el);
+      });
+    }
+
+    function renderLines() {
+      svgLayer.innerHTML = "";
+      const visible = getVisibleNodeIds();
+
+      for (const node of state.nodes) {
+        if (!node.parentId) continue;
+        if (!visible.has(node.id) || !visible.has(node.parentId)) continue;
+
+        const parent = state.nodes.find(n => n.id === node.parentId);
+        if (!parent) continue;
+
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const x1 = parent.x, y1 = parent.y;
+        const x2 = node.x,   y2 = node.y;
+        const dx = Math.abs(x2 - x1) * 0.5;
+        const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+        path.setAttribute("d", d);
+        path.setAttribute("class", `connector-path ${state.selectedId === node.id ? "active" : ""}`);
+        svgLayer.appendChild(path);
+      }
+    }
+
+    function applyTransform() {
+      canvas.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.scale})`;
+    }
+
+    function updateStatus() { nodeCount.textContent = `${state.nodes.length} nodes`; }
+
+    function renderMinimap() {
+      const nodes = state.nodes;
+      if (!nodes.length) return;
+
+      let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+      for (const n of nodes) {
+        minX = Math.min(minX, n.x);
+        minY = Math.min(minY, n.y);
+        maxX = Math.max(maxX, n.x);
+        maxY = Math.max(maxY, n.y);
+      }
+      const pad = 220;
+      minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+
+      const w = minimapCanvas.width, h = minimapCanvas.height;
+      mm.clearRect(0,0,w,h);
+
+      const bw = maxX - minX;
+      const bh = maxY - minY;
+      const s = Math.min(w / bw, h / bh);
+
+      const tx = (x)=> (x - minX) * s;
+      const ty = (y)=> (y - minY) * s;
+
+      mm.lineWidth = 2;
+      mm.strokeStyle = "rgba(255,255,255,0.12)";
+      for (const n of nodes) {
+        if (!n.parentId) continue;
+        const p = nodes.find(x => x.id === n.parentId);
+        if (!p) continue;
+        mm.beginPath();
+        mm.moveTo(tx(p.x), ty(p.y));
+        mm.lineTo(tx(n.x), ty(n.y));
+        mm.stroke();
+      }
+
+      for (const n of nodes) {
+        const r = n.id === "root" ? 6 : 4;
+        mm.beginPath();
+        mm.fillStyle = (n.id === state.selectedId) ? "rgba(56,189,248,0.95)" : "rgba(203,213,225,0.75)";
+        mm.arc(tx(n.x), ty(n.y), r, 0, Math.PI*2);
+        mm.fill();
+      }
+
+      const sx0 = 0, sy0 = 0, sx1 = window.innerWidth, sy1 = window.innerHeight;
+      const wx0 = (sx0 - state.panX) / state.scale;
+      const wy0 = (sy0 - state.panY) / state.scale;
+      const wx1 = (sx1 - state.panX) / state.scale;
+      const wy1 = (sy1 - state.panY) / state.scale;
+
+      mm.strokeStyle = "rgba(56,189,248,0.55)";
+      mm.lineWidth = 2;
+      mm.strokeRect(tx(wx0), ty(wy0), (wx1-wx0)*s, (wy1-wy0)*s);
+    }
+
+    function setupEventListeners() {
+      document.addEventListener("pointerdown", (e) => {
+        if (!e.target.closest("#ctxMenu")) closeCtx();
+      });
+
+      container.addEventListener("pointerdown", (e) => {
+        if (e.target.closest(".node")) return;
+        closeCtx();
+        clearTimeout(longPressTimer);
+
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        container.setPointerCapture(e.pointerId);
+
+        if (pointers.size === 1) {
+          isCanvasPanning = true;
+          container.classList.add("dragging");
+          lastPanPoint = { x: e.clientX, y: e.clientY };
+        }
+
+        if (pointers.size === 2) {
+          isPinching = true;
+          isCanvasPanning = false;
+          container.classList.add("dragging");
+
+          const pts = Array.from(pointers.values());
+          pinchStartDist = dist(pts[0], pts[1]);
+          pinchStartScale = state.scale;
+
+          pinchAnchorScreen = { x:(pts[0].x+pts[1].x)/2, y:(pts[0].y+pts[1].y)/2 };
+          pinchAnchorWorld  = screenToWorld(pinchAnchorScreen.x, pinchAnchorScreen.y);
+
+          nodeDrag.active = false;
+          clearTimeout(longPressTimer);
+        }
+      });
+
+      container.addEventListener("pointermove", (e) => {
+        if (!pointers.has(e.pointerId)) return;
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        if (isPinching && pointers.size >= 2) {
+          const pts = Array.from(pointers.values()).slice(0,2);
+          const d = dist(pts[0], pts[1]);
+          const ratio = d / (pinchStartDist || d);
+          state.scale = clamp(pinchStartScale * ratio, config.minScale, config.maxScale);
+          state.panX = pinchAnchorScreen.x - pinchAnchorWorld.x * state.scale;
+          state.panY = pinchAnchorScreen.y - pinchAnchorWorld.y * state.scale;
+          applyTransform();
+          renderMinimap();
+          return;
+        }
+
+        if (isCanvasPanning && pointers.size === 1 && lastPanPoint) {
+          const dx = e.clientX - lastPanPoint.x;
+          const dy = e.clientY - lastPanPoint.y;
+          state.panX += dx;
+          state.panY += dy;
+          lastPanPoint = { x: e.clientX, y: e.clientY };
+          applyTransform();
+          renderMinimap();
+        }
+      });
+
+      container.addEventListener("pointerup", (e) => {
+        pointers.delete(e.pointerId);
+        if (pointers.size === 0) {
+          isCanvasPanning = false;
+          isPinching = false;
+          lastPanPoint = null;
+          container.classList.remove("dragging");
+        } else if (pointers.size === 1) {
+          isPinching = false;
+          isCanvasPanning = true;
+          const only = Array.from(pointers.values())[0];
+          lastPanPoint = { x: only.x, y: only.y };
+        }
+      });
+
+      container.addEventListener("pointercancel", () => {
+        pointers.clear();
+        isCanvasPanning = false;
+        isPinching = false;
+        lastPanPoint = null;
+        container.classList.remove("dragging");
+      });
+
+      container.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const rect = container.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        const beforeX = (mx - state.panX) / state.scale;
+        const beforeY = (my - state.panY) / state.scale;
+
+        const zoom = e.deltaY > 0 ? (1 - config.zoomSpeedWheel) : (1 + config.zoomSpeedWheel);
+        state.scale = clamp(state.scale * zoom, config.minScale, config.maxScale);
+
+        state.panX = mx - beforeX * state.scale;
+        state.panY = my - beforeY * state.scale;
+
+        applyTransform();
+        renderMinimap();
+      }, { passive:false });
+
+      ctxAdd.addEventListener("click", () => {
+        const id = ctxMenu.dataset.nodeId;
+        addNode(id, "新しいノード");
+        closeCtx();
+      });
+
+      ctxEdit.addEventListener("click", () => {
+        const id = ctxMenu.dataset.nodeId;
+        const node = state.nodes.find(n => n.id === id);
+        const el = document.querySelector(`.node[data-id="${id}"]`);
+        if (node && el) editNode(node, el);
+      });
+
+      ctxToggle.addEventListener("click", () => {
+        const id = ctxMenu.dataset.nodeId;
+        toggleCollapse(id, true);
+        closeCtx();
+      });
+
+      ctxDelete.addEventListener("click", () => {
+        const id = ctxMenu.dataset.nodeId;
+        deleteNode(id);
+        closeCtx();
+      });
+
+      ctxCenter.addEventListener("click", () => {
+        const id = ctxMenu.dataset.nodeId;
+        centerOnNode(id);
+        closeCtx();
+      });
+
+      ctxMenu.querySelectorAll(".swatch").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = ctxMenu.dataset.nodeId;
+          setNodeColor(id, btn.dataset.c);
+        });
+      });
+
+      window.addEventListener("resize", closeCtx);
+    }
+
+    function openCtx(nodeId, x, y) {
+      const node = state.nodes.find(n => n.id === nodeId);
+      if (!node) return;
+
+      ctxMenu.dataset.nodeId = nodeId;
+      ctxLabel.textContent = node.isRoot ? "Root" : "Node";
+      ctxDelete.style.display = node.isRoot ? "none" : "flex";
+      ctxToggle.textContent = node.collapsed ? "展開" : "折りたたみ";
+
+      const margin = 10;
+      ctxMenu.style.display = "block";
+      const rect = ctxMenu.getBoundingClientRect();
+      const vw = window.innerWidth, vh = window.innerHeight;
+
+      let left = x;
+      let top  = y;
+
+      if (left + rect.width + margin > vw) left = vw - rect.width - margin;
+      if (top  + rect.height + margin > vh) top  = vh - rect.height - margin;
+      if (left < margin) left = margin;
+      if (top  < margin) top  = margin;
+
+      ctxMenu.style.left = left + "px";
+      ctxMenu.style.top  = top  + "px";
+      ctxMenu.setAttribute("aria-hidden","false");
+    }
+
+    function closeCtx() {
+      ctxMenu.style.display = "none";
+      ctxMenu.setAttribute("aria-hidden","true");
+    }
+
+    function clamp(n,a,b){ return Math.min(Math.max(a,n),b); }
+    function zoomIn(){ state.scale = clamp(state.scale*1.2, config.minScale, config.maxScale); applyTransform(); renderMinimap(); }
+    function zoomOut(){ state.scale = clamp(state.scale/1.2, config.minScale, config.maxScale); applyTransform(); renderMinimap(); }
+    function resetView(){
+      state.scale = 1;
+      state.panX = window.innerWidth / 2 - 2000;
+      state.panY = window.innerHeight / 2 - 2000;
+      applyTransform(); renderMinimap();
+    }
+
+    function centerOnNode(nodeId){
+      const node = state.nodes.find(n => n.id === nodeId);
+      if (!node) return;
+      pushHistory();
+      state.panX = window.innerWidth/2  - node.x * state.scale;
+      state.panY = window.innerHeight/2 - node.y * state.scale;
+      applyTransform(); renderMinimap();
+      scheduleSave();
+      ping("Centered");
+    }
+
+    function screenToWorld(sx, sy){ return { x:(sx - state.panX)/state.scale, y:(sy - state.panY)/state.scale }; }
+
+    function snapNodeToLevel(node){
+      if (!node.parentId) return;
+      const parent = state.nodes.find(n => n.id === node.parentId);
+      if (!parent) return;
+      const targetX = parent.x + config.levelSpacing;
+      node.x = lerp(node.x, targetX, 0.55);
+    }
+
+    function relaxOverlaps(){
+      const padding = config.overlapPadding;
+      for (let iter=0; iter<config.overlapIterations; iter++){
+        let moved = false;
+        for (let i=0; i<state.nodes.length; i++){
+          for (let j=i+1; j<state.nodes.length; j++){
+            const a = state.nodes[i], b = state.nodes[j];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const d  = Math.hypot(dx,dy) || 0.0001;
+            const ra = (a.isRoot ? 110 : 90);
+            const rb = (b.isRoot ? 110 : 90);
+            const minD = ra + rb + padding;
+            if (d < minD){
+              const push = (minD - d) * 0.5;
+              const ux = dx / d, uy = dy / d;
+              const wa = a.isRoot ? 0.15 : 1.0;
+              const wb = b.isRoot ? 0.15 : 1.0;
+              a.x -= ux * push * wa; a.y -= uy * push * wa;
+              b.x += ux * push * wb; b.y += uy * push * wb;
+              moved = true;
+            }
+          }
+        }
+        if (!moved) break;
+      }
+    }
+
+    function lerp(a,b,t){ return a + (b-a)*t; }
+
+    function exportData(){
+      const data = snapshot();
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+      const a = document.createElement("a");
+      a.href = dataStr;
+      a.download = "mindmap_export.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      ping("Exported");
+    }
+
+    function clearAll(){
+      if (!confirm("新規マップにしますか？（現在の内容はローカルから消えます）")) return;
+      pushHistory();
+      state.nodes = [{ id:"root", text:"アイデアの種", x:2000, y:2000, parentId:null, isRoot:true, color:"sky", collapsed:false }];
+      state.selectedId = "root";
+      resetView();
+      scheduleSave(true);
+      update(true);
+      ping("New map");
+    }
+
+    function markDirty(){ statusText.textContent = "Saving…"; statusText.style.color = "#e2e8f0"; }
+    function markSaved(){ statusText.textContent = "Saved"; statusText.style.color = "#cbd5e1"; }
+
+    function scheduleSave(force=false){
+      markDirty();
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => { saveNow(); }, force ? 10 : 350);
+    }
+
+    function saveNow(){
+      try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot())); markSaved(); }
+      catch(e){ statusText.textContent = "Save failed"; statusText.style.color = "#fca5a5"; }
+    }
+
+    function ping(msg){
+      toastText.textContent = msg;
+      toast.style.display = "inline-flex";
+      clearTimeout(ping._t);
+      ping._t = setTimeout(()=> toast.style.display="none", 900);
+    }
+
+    function dist(p1,p2){ return Math.hypot(p2.x-p1.x, p2.y-p1.y); }
+    function escapeHtml(str){
+      return String(str).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
+    }
+    function escapeAttr(str){ return escapeHtml(str); }
+    function safeParse(s){ try{ return JSON.parse(s); }catch{ return null; } }
+
+    function init() {
+      const stored = safeParse(localStorage.getItem(STORAGE_KEY));
+      if (stored && stored.nodes && Array.isArray(stored.nodes)) {
+        state.nodes = stored.nodes;
+        state.selectedId = stored.selectedId || "root";
+        state.scale = stored.scale ?? 1;
+        state.panX = stored.panX ?? (window.innerWidth / 2 - 2000);
+        state.panY = stored.panY ?? (window.innerHeight / 2 - 2000);
+        for (const n of state.nodes) {
+          if (typeof n.collapsed !== "boolean") n.collapsed = false;
+          if (!n.color) n.color = "sky";
+        }
+      } else {
+        addNode("root", "リサーチ", false);
+        addNode("root", "開発", false);
+        addNode("root", "デザイン", false);
+        scheduleSave();
+      }
+
+      pushHistory();
+      update(true);
+      setupEventListeners();
+      markSaved();
+    }
+
+    init();
+  </script>
+</body>
+</html>
