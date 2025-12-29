@@ -660,56 +660,84 @@
         }
 
         // Render state
-        let renderTimeout = null;
         let lineRenderTimeout = null;
+
+        // Visible node positions - single source of truth
+        const visiblePositions = new Map(); // id -> {x, y, width}
 
         // Render
         function render() {
             if (!treeData) return;
+
+            // Step 1: Calculate layout and determine visible nodes
             calcLayout(treeData);
+
+            // Step 2: Build visible positions map
+            buildVisiblePositions();
+
+            // Step 3: Render nodes using positions map
             renderNodes();
-            scheduleLineRender();
+
+            // Step 4: Render lines using same positions map (after DOM update)
+            requestAnimationFrame(() => {
+                updateNodeWidths();
+                renderLines();
+            });
+
             updateStats();
             updateBreadcrumb();
             updateHistoryBtns();
         }
 
-        function scheduleLineRender() {
-            if (lineRenderTimeout) cancelAnimationFrame(lineRenderTimeout);
-            // Render lines immediately - positions are stable from data attributes
-            lineRenderTimeout = requestAnimationFrame(() => {
-                renderLines();
+        function buildVisiblePositions() {
+            visiblePositions.clear();
+
+            function collect(node) {
+                if (!node._visible) return;
+
+                visiblePositions.set(node.id, {
+                    x: node._x,
+                    y: node._y,
+                    width: 0 // Will be updated after DOM render
+                });
+
+                node.children.forEach(collect);
+            }
+
+            collect(treeData);
+        }
+
+        function updateNodeWidths() {
+            visiblePositions.forEach((pos, id) => {
+                const el = nodeElements.get(id);
+                if (el) {
+                    const content = el.querySelector('.node-content');
+                    pos.width = content ? content.offsetWidth : 100;
+                }
             });
         }
 
-        // Track which nodes are ready for line drawing
-        const readyNodes = new Set();
-
         function renderNodes() {
             const container = document.getElementById('mindmap');
-            const processed = new Set();
 
             function process(node) {
-                processed.add(node.id);
                 let el = nodeElements.get(node.id);
-                const shouldBeVisible = node._visible;
+                const pos = visiblePositions.get(node.id);
+                const shouldBeVisible = !!pos;
 
                 if (!shouldBeVisible) {
-                    // Hide node and mark as not ready
+                    // Hide node
                     if (el) {
                         el.classList.add('hidden');
                     }
-                    readyNodes.delete(node.id);
                     node.children.forEach(process);
                     return;
                 }
 
-                const isNew = !el;
-
                 // Create element if needed
-                if (isNew) {
+                if (!el) {
                     el = document.createElement('div');
-                    el.className = 'node hidden'; // Start hidden
+                    el.className = 'node';
                     el.dataset.id = node.id;
                     container.appendChild(el);
                     nodeElements.set(node.id, el);
@@ -737,14 +765,10 @@
                     setupEvents(el, node);
                 }
 
-                // Store target position in data attributes
-                el.dataset.targetX = node._x;
-                el.dataset.targetY = node._y;
+                // Position using transform
+                el.style.transform = `translate(${pos.x}px, ${pos.y - 20}px)`;
 
-                // Position using transform (GPU accelerated)
-                el.style.transform = `translate(${node._x}px, ${node._y - 20}px)`;
-
-                // Build class list (remove hidden)
+                // Build class list
                 let cls = 'node';
                 if (node._depth === 0) cls += ' root';
                 if (!hasKids) cls += ' leaf';
@@ -752,23 +776,16 @@
                 if (selectedNode === node) cls += ' selected';
                 el.className = cls;
 
-                // Mark as ready for lines
-                readyNodes.add(node.id);
-
                 node.children.forEach(process);
             }
 
             process(treeData);
 
-            // Remove orphan elements
+            // Remove elements for nodes that no longer exist
             nodeElements.forEach((el, id) => {
-                if (!processed.has(id)) {
-                    el.classList.add('hidden');
-                    readyNodes.delete(id);
-                    setTimeout(() => {
-                        if (el.parentNode) el.remove();
-                        nodeElements.delete(id);
-                    }, 300);
+                if (!nodeMap.has(id)) {
+                    el.remove();
+                    nodeElements.delete(id);
                 }
             });
         }
@@ -778,58 +795,31 @@
             const paths = [];
 
             function collectLines(node) {
-                // Skip if node not visible or has no children
-                if (!node._visible) return;
+                // Parent must be in visiblePositions
+                const parentPos = visiblePositions.get(node.id);
+                if (!parentPos) return;
+
+                // Skip if no children or collapsed
                 if (node.children.length === 0) return;
-
-                // Skip if node is not ready
-                if (!readyNodes.has(node.id)) return;
-
-                // Skip drawing children lines if collapsed (except root)
                 const isExpanded = expandedNodes.has(node.id) || node._depth === 0;
                 if (!isExpanded) return;
 
-                // Get parent element
-                const parentEl = nodeElements.get(node.id);
-                if (!parentEl) return;
-
-                const parentContent = parentEl.querySelector('.node-content');
-                if (!parentContent) return;
-
-                // Use target position from data attributes (stable, not animated)
-                const parentX = parseFloat(parentEl.dataset.targetX) || 0;
-                const parentY = parseFloat(parentEl.dataset.targetY) || 0;
-
-                // Process each child
+                // Draw lines to visible children only
                 for (const child of node.children) {
-                    // Child must be visible and ready
-                    if (!child._visible) continue;
-                    if (!readyNodes.has(child.id)) continue;
+                    const childPos = visiblePositions.get(child.id);
 
-                    // Child element must exist
-                    const childEl = nodeElements.get(child.id);
-                    if (!childEl) continue;
+                    // CRITICAL: Only draw if child is in visiblePositions
+                    if (!childPos) continue;
 
-                    // Use target position from data attributes
-                    const childX = parseFloat(childEl.dataset.targetX);
-                    const childY = parseFloat(childEl.dataset.targetY);
-
-                    // Skip if positions are invalid
-                    if (isNaN(childX) || isNaN(childY)) continue;
-
-                    // Calculate line coordinates
-                    const x1 = parentX + parentContent.offsetWidth;
-                    const y1 = parentY;
-                    const x2 = childX;
-                    const y2 = childY;
+                    const x1 = parentPos.x + parentPos.width;
+                    const y1 = parentPos.y;
+                    const x2 = childPos.x;
+                    const y2 = childPos.y;
                     const ctrlX = (x1 + x2) / 2;
 
-                    // Check for highlight
                     const isHighlighted = hoveredNode && (hoveredNode === child || isAncestor(hoveredNode, child));
-
                     paths.push(`<path d="M${x1},${y1} C${ctrlX},${y1} ${ctrlX},${y2} ${x2},${y2}"${isHighlighted ? ' class="highlighted"' : ''}/>`);
 
-                    // Recurse
                     collectLines(child);
                 }
             }
