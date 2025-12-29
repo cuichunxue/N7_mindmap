@@ -659,83 +659,41 @@
             node.children.forEach(c => { c._visible = false; hideAll(c); });
         }
 
-        // Render state
-        let lineRenderTimeout = null;
-
-        // Visible node positions - single source of truth
-        const visiblePositions = new Map(); // id -> {x, y, width}
+        // Get visible node IDs (same logic used by both renderNodes and renderLines)
+        function getVisibleNodeIds() {
+            const visible = new Set();
+            function collect(node) {
+                if (!node._visible) return;
+                visible.add(node.id);
+                if (expandedNodes.has(node.id) || node._depth === 0) {
+                    node.children.forEach(collect);
+                }
+            }
+            if (treeData) collect(treeData);
+            return visible;
+        }
 
         // Render
         function render() {
             if (!treeData) return;
-
-            // FIRST: Clear lines immediately to prevent orphan lines
-            document.getElementById('connections-svg').innerHTML = '';
-
-            // Step 1: Calculate layout and determine visible nodes
             calcLayout(treeData);
-
-            // Step 2: Build visible positions map
-            buildVisiblePositions();
-
-            // Step 3: Render nodes using positions map
             renderNodes();
-
-            // Step 4: Render lines AFTER DOM is fully updated
-            // Use double RAF to ensure layout is complete
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    updateNodeWidths();
-                    renderLines();
-                });
-            });
-
+            renderLines();
             updateStats();
             updateBreadcrumb();
             updateHistoryBtns();
         }
 
-        function buildVisiblePositions() {
-            visiblePositions.clear();
-
-            function collect(node) {
-                if (!node._visible) return;
-
-                visiblePositions.set(node.id, {
-                    x: node._x,
-                    y: node._y,
-                    width: 0 // Will be updated after DOM render
-                });
-
-                node.children.forEach(collect);
-            }
-
-            collect(treeData);
-        }
-
-        function updateNodeWidths() {
-            visiblePositions.forEach((pos, id) => {
-                const el = nodeElements.get(id);
-                if (el) {
-                    const content = el.querySelector('.node-content');
-                    pos.width = content ? content.offsetWidth : 100;
-                }
-            });
-        }
-
         function renderNodes() {
             const container = document.getElementById('mindmap');
+            const visible = getVisibleNodeIds();
 
             function process(node) {
                 let el = nodeElements.get(node.id);
-                const pos = visiblePositions.get(node.id);
-                const shouldBeVisible = !!pos;
+                const isVisible = visible.has(node.id);
 
-                if (!shouldBeVisible) {
-                    // Hide node
-                    if (el) {
-                        el.classList.add('hidden');
-                    }
+                if (!isVisible) {
+                    if (el) el.classList.add('hidden');
                     node.children.forEach(process);
                     return;
                 }
@@ -771,8 +729,8 @@
                     setupEvents(el, node);
                 }
 
-                // Position using transform
-                el.style.transform = `translate(${pos.x}px, ${pos.y - 20}px)`;
+                // Position using transform - use calculated coordinates directly
+                el.style.transform = `translate(${node._x}px, ${node._y - 20}px)`;
 
                 // Build class list
                 let cls = 'node';
@@ -786,59 +744,34 @@
             }
 
             process(treeData);
-
-            // Remove elements for nodes that no longer exist
-            nodeElements.forEach((el, id) => {
-                if (!nodeMap.has(id)) {
-                    el.remove();
-                    nodeElements.delete(id);
-                }
-            });
         }
 
         function renderLines() {
             const svg = document.getElementById('connections-svg');
-            const paths = [];
+            svg.innerHTML = '';
+            const visible = getVisibleNodeIds();
 
-            function collectLines(node) {
-                // Parent must be in visiblePositions
-                const parentPos = visiblePositions.get(node.id);
-                if (!parentPos) return;
+            // Iterate through all nodes and draw lines to their parent
+            nodeMap.forEach(node => {
+                if (!node.parent) return;
+                if (!visible.has(node.id) || !visible.has(node.parent.id)) return;
 
-                // Parent must have valid width (element must be rendered)
-                if (!parentPos.width || parentPos.width <= 0) return;
+                const parent = node.parent;
 
-                // Skip if no children or collapsed
-                if (node.children.length === 0) return;
-                const isExpanded = expandedNodes.has(node.id) || node._depth === 0;
-                if (!isExpanded) return;
+                // Use calculated coordinates directly (same as index5.html approach)
+                const x1 = parent._x + 120; // Approximate node width
+                const y1 = parent._y;
+                const x2 = node._x;
+                const y2 = node._y;
+                const dx = Math.abs(x2 - x1) * 0.5;
 
-                // Draw lines to visible children only
-                for (const child of node.children) {
-                    const childPos = visiblePositions.get(child.id);
+                const isHighlighted = hoveredNode && (hoveredNode === node || isAncestor(hoveredNode, node));
 
-                    // CRITICAL: Only draw if child is in visiblePositions
-                    if (!childPos) continue;
-
-                    // Verify child element exists and is not hidden
-                    const childEl = nodeElements.get(child.id);
-                    if (!childEl || childEl.classList.contains('hidden')) continue;
-
-                    const x1 = parentPos.x + parentPos.width;
-                    const y1 = parentPos.y;
-                    const x2 = childPos.x;
-                    const y2 = childPos.y;
-                    const ctrlX = (x1 + x2) / 2;
-
-                    const isHighlighted = hoveredNode && (hoveredNode === child || isAncestor(hoveredNode, child));
-                    paths.push(`<path d="M${x1},${y1} C${ctrlX},${y1} ${ctrlX},${y2} ${x2},${y2}"${isHighlighted ? ' class="highlighted"' : ''}/>`);
-
-                    collectLines(child);
-                }
-            }
-
-            collectLines(treeData);
-            svg.innerHTML = paths.join('');
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`);
+                if (isHighlighted) path.classList.add('highlighted');
+                svg.appendChild(path);
+            });
         }
 
         function isAncestor(node, potential) {
