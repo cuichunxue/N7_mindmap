@@ -99,10 +99,14 @@
             flex: 1; position: relative; overflow: hidden;
             background: var(--bg-primary);
             transition: background 0.3s;
+            touch-action: none;
+            cursor: grab;
         }
+        .canvas-container.dragging { cursor: grabbing; }
         .canvas-wrapper {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             transform-origin: 0 0;
+            will-change: transform;
         }
 
         /* SVG - same coordinate space as nodes */
@@ -947,7 +951,8 @@
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
             function scan(node) {
-                if (!node._visible) return;
+                // Use visibleNodeIds instead of _visible
+                if (!visibleNodeIds.has(node.id)) return;
                 const el = nodeElements.get(node.id);
                 const w = el ? el.querySelector('.node-content')?.offsetWidth || 150 : 150;
                 minX = Math.min(minX, node._x);
@@ -958,8 +963,10 @@
             }
             scan(treeData);
 
-            const w = maxX - minX + 60, h = maxY - minY + 60;
-            scale = Math.max(0.25, Math.min(1.2, Math.min(r.width / w, r.height / h)));
+            if (minX === Infinity) return; // No visible nodes
+
+            const w = maxX - minX + 100, h = maxY - minY + 100;
+            scale = Math.max(0.25, Math.min(1.5, Math.min(r.width / w, r.height / h)));
             panX = r.width / 2 - (minX + maxX) / 2 * scale;
             panY = r.height / 2 - (minY + maxY) / 2 * scale;
             updateTransform();
@@ -1024,13 +1031,13 @@
             c.onmousedown = e => {
                 if (e.target === c || e.target.closest('.canvas-wrapper')) {
                     md = true; msx = e.clientX; msy = e.clientY; mpx = panX; mpy = panY;
-                    c.style.cursor = 'grabbing';
+                    c.classList.add('dragging');
                 }
             };
             window.onmousemove = e => {
                 if (md) { panX = mpx + e.clientX - msx; panY = mpy + e.clientY - msy; updateTransform(); }
             };
-            window.onmouseup = () => { md = false; c.style.cursor = ''; };
+            window.onmouseup = () => { md = false; c.classList.remove('dragging'); };
 
             c.onwheel = e => {
                 e.preventDefault();
